@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.pijatin.customer"
+    namespace = "com.massago.customer"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.pijatin.customer"
+        applicationId = "com.massago.customer"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

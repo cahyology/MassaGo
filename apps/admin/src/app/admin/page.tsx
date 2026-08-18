@@ -48,7 +48,7 @@ export default function AdminPage() {
 
   // Initialize theme from localStorage or default to Light mode
   useEffect(() => {
-    const savedTheme = localStorage.getItem('pijatin_admin_theme');
+    const savedTheme = localStorage.getItem('massago_admin_theme');
     if (savedTheme === 'dark') {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
@@ -66,11 +66,11 @@ export default function AdminPage() {
       if (next) {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
-        localStorage.setItem('pijatin_admin_theme', 'dark');
+        localStorage.setItem('massago_admin_theme', 'dark');
       } else {
         document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
-        localStorage.setItem('pijatin_admin_theme', 'light');
+        localStorage.setItem('massago_admin_theme', 'light');
       }
       return next;
     });

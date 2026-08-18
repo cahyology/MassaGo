@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 export async function GET() {
   return NextResponse.json({
     status: 'ACTIVE',
-    service: 'PijatIn DOKU Webhook Notification Listener',
+    service: 'MassaGo DOKU Webhook Notification Listener',
     timestamp: new Date().toISOString(),
     guide: 'Gunakan URL POST ini pada menu Settings > Notifications di Dashboard DOKU Anda.',
   });

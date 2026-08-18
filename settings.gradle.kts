@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PijatIn"
+rootProject.name = "MassaGo"
 include(":apps:mitra")
 include(":apps:customer")

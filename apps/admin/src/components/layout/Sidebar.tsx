@@ -153,10 +153,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 select-none h-screen transition-colors duration-200">
       {/* Brand Header */}
       <div className="h-16 px-5 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80">
-        <img src="/logo.svg" alt="PijatIn Logo" className="w-9 h-9 object-contain rounded-xl shadow-sm shadow-emerald-600/20" />
+        <img src="/logo.svg" alt="MassaGo Logo" className="w-9 h-9 object-contain rounded-xl shadow-sm shadow-emerald-600/20" />
         <div>
           <div className="flex items-center gap-1.5">
-            <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">PijatIn</span>
+            <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">MassaGo</span>
             <span className="text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded uppercase">
               Admin
             </span>

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     let fonnteResponse: any = null;
 
     if (fonnteToken && isFonnteEnabled) {
-      const message = `*Kode Verifikasi PijatIn (OTP)* 💆‍♂️\n\nKode OTP Anda adalah: *${otpCode}*\n\nJangan bagikan kode ini kepada siapa pun demi keamanan akun Anda. Berlaku selama 5 menit.`;
+      const message = `*Kode Verifikasi MassaGo (OTP)* 💆‍♂️\n\nKode OTP Anda adalah: *${otpCode}*\n\nJangan bagikan kode ini kepada siapa pun demi keamanan akun Anda. Berlaku selama 5 menit.`;
 
       const fonnteRes = await fetch('https://api.fonnte.com/send', {
         method: 'POST',

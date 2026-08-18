@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PijatIn Mitra</string>
+    <string name="app_name">MassaGo Mitra</string>
     <string name="therapist_title">Mitra Terapis Home Massage</string>
     <string name="status_online">Siap Menerima Order</string>
     <string name="status_offline">Sedang Istirahat (Offline)</string>

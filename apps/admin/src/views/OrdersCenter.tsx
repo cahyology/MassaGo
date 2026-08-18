@@ -191,7 +191,7 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white">{order.customer_name || 'Pelanggan PijatIn'}</div>
+                      <div className="font-bold text-slate-900 dark:text-white">{order.customer_name || 'Pelanggan MassaGo'}</div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[200px] flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                         <span className="truncate">{cleanAddress}</span>
@@ -273,7 +273,7 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
             <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Nama Pelanggan:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{selectedOrder.customer_name || 'Pelanggan PijatIn'}</span>
+                <span className="font-bold text-slate-900 dark:text-white">{selectedOrder.customer_name || 'Pelanggan MassaGo'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Nomor Telepon:</span>

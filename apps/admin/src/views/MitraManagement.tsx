@@ -381,7 +381,7 @@ export const MitraManagement: React.FC<MitraManagementProps> = ({
                                 },
                                 body: JSON.stringify({
                                   target: clean,
-                                  message: `*Pendaftaran Mitra Disetujui!* 🎉\n\nHalo *${candidate.name}*,\n\nSelamat! Berkas KYC pendaftaran mitra terapis PijatIn Anda telah *DISETUJUI* oleh Admin. Anda sekarang dapat login ke aplikasi PijatIn Mitra dan mengaktifkan status *ONLINE* untuk mulai menerima pesanan.\n\nSelamat bekerja & sukses selalu bersama PijatIn! 💆‍♂️`,
+                                  message: `*Pendaftaran Mitra Disetujui!* 🎉\n\nHalo *${candidate.name}*,\n\nSelamat! Berkas KYC pendaftaran mitra terapis MassaGo Anda telah *DISETUJUI* oleh Admin. Anda sekarang dapat login ke aplikasi MassaGo Mitra dan mengaktifkan status *ONLINE* untuk mulai menerima pesanan.\n\nSelamat bekerja & sukses selalu bersama MassaGo! 💆‍♂️`,
                                   countryCode: '62',
                                 }),
                               });

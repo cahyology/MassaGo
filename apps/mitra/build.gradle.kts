@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.pijatin.mitra"
+    namespace = "com.massago.mitra"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.pijatin.mitra"
+        applicationId = "com.massago.mitra"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

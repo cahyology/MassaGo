@@ -1,13 +1,13 @@
-# 💆‍♂️ PijatIn - On-Demand Home Massage & Spa Platform
+# 💆‍♂️ MassaGo - On-Demand Home Massage & Spa Platform
 
 > **"Layanan Pijat & Spa Panggilan Profesional, Terverifikasi, Higienis & Terpercaya"**
 
 ---
 
-## 🏛️ Struktur Ekosistem Monorepo `PijatIn`
+## 🏛️ Struktur Ekosistem Monorepo `MassaGo`
 
 ```
-PijatIn/
+MassaGo/
 ├── apps/
 │   ├── mitra/             # 📱 Aplikasi Mitra Terapis Android Native (Kotlin + Jetpack Compose)
 │   ├── customer/          # 📱 Aplikasi Pelanggan Android Native (Kotlin + Jetpack Compose)
@@ -22,14 +22,14 @@ PijatIn/
 ---
 
 ## 📱 1. Aplikasi Mitra Terapis (`apps/mitra`)
-- **Package ID**: `com.pijatin.mitra`
+- **Package ID**: `com.massago.mitra`
 - **Fitur Utama**:
   - 📡 **Dispatch Radar & Duty Toggle**: Status Siap Kerja dengan animasi glowing pulse.
   - 🔔 **Alert Pesanan Masuk (30 Detik)**: Push Notification Heads-up + Suara Harmonis Chime Ojol & Getaran Haptik.
   - 🗺️ **Peta Navigasi & GPS**: Rute perjalanan menuju alamat pelanggan.
   - 🧼 **SOP Higienitas & Alat Steril**: Ceklis kebersihan sebelum memulai pemijatan.
   - ⏱️ **Timer Terapi Live**: Countdown waktu terapi lingkaran + kontrol suara ambient spa relaksasi.
-  - 💳 **Dompet Mitra (PijatIn Pay)**: Pembagian komisi bersih 80% dan penarikan instan ke Bank BCA/Mandiri/BRI/GoPay/DANA.
+  - 💳 **Dompet Mitra (MassaGo Pay)**: Pembagian komisi bersih 80% dan penarikan instan ke Bank BCA/Mandiri/BRI/GoPay/DANA.
   - 🚨 **Tombol Darurat SOS 24/7**: Penguncian titik GPS dan koordinasi keamanan.
 
 ### Cara Build APK Mitra:
@@ -41,12 +41,12 @@ PijatIn/
 ---
 
 ## 📱 2. Aplikasi Pelanggan (`apps/customer`)
-- **Package ID**: `com.pijatin.customer`
+- **Package ID**: `com.massago.customer`
 - **Fitur Utama**:
-  - 🏠 **Beranda & Pemilih Lokasi**: Pemilihan titik jemput apartemen/rumah dan saldo PijatIn Pay.
+  - 🏠 **Beranda & Pemilih Lokasi**: Pemilihan titik jemput apartemen/rumah dan saldo MassaGo Pay.
   - 💆‍♀️ **6 Paket Layanan Lengkap**: Tradisional Jawa, Refleksi Kaki, Deep Tissue Sport, Lulur Body Scrub, Bekam Steril, dan Pijat Ibu Hamil (Prenatal).
   - 🌿 **Kustomisasi Lengkap**: Pilihan durasi (60/90/120 mnt), minyak aromaterapi (Zaitun, Lavender, Rempah Hangat, VCO), titik fokus tubuh, tekanan pijat, dan preferensi gender terapis.
-  - 🎟️ **Voucher Promo**: Klaim diskon (`PIJATINBARU`, `HEMATWEEKEND`, `SPALUXURY`).
+  - 🎟️ **Voucher Promo**: Klaim diskon (`MASSAGOBARU`, `HEMATWEEKEND`, `SPALUXURY`).
   - 📍 **Live Map Tracking**: Memantau motor terapis bergerak di peta dengan estimasi waktu tiba (ETA).
   - ⭐ **Rating & Tip Digital**: Ulasan bintang 1-5 dan tip nominal instan.
 

@@ -1,12 +1,12 @@
-# 🚀 PijatIn Ecosystem - Master Strategy & Next Planning Roadmap
+# 🚀 MassaGo Ecosystem - Master Strategy & Next Planning Roadmap
 
-Dokumen ini memuat blueprint arsitektur bisnis, manajemen risiko operasional, penanganan *edge cases*, dan roadmap pengembangan teknologi ekosistem **PijatIn** (Customer App, Mitra App, dan Web Superadmin).
+Dokumen ini memuat blueprint arsitektur bisnis, manajemen risiko operasional, penanganan *edge cases*, dan roadmap pengembangan teknologi ekosistem **MassaGo** (Customer App, Mitra App, dan Web Superadmin).
 
 ---
 
 ## 📌 1. Fondasi Model Bisnis: "Standardized Managed Service with Smart Scale-up"
 
-PijatIn mengadopsi model **Hybrid Smart Platform**:
+MassaGo mengadopsi model **Hybrid Smart Platform**:
 1. **Fase Peluncuran (Go-to-Market)**:
    - Platform menstandarisasi paket layanan resmi (*Pijat Tradisional, Refleksi, Scrub Body Spa, Deep Tissue*) beserta durasi (60, 90, 120 menit), SOP kebersihan, dan tarif dasar.
    - Menggunakan algoritma **1-Click Auto Match** berdasarkan radius GPS terdekat (5 - 7 km) untuk kecepatan order maksimal (< 10 detik).
@@ -24,7 +24,7 @@ Karena layanan berlangsung di ruang privat konsumen, keamanan adalah prioritas m
 - **Aturan Dispatch**: Sistem hanya akan mengirimkan penawaran order kepada mitra yang sesuai preferensi gender tersebut.
 
 ### B. Kebijakan Tegas Anti-Penyalahgunaan (Strict Anti-Harassment)
-- **Disclaimer Modal**: Peringatan hukum resmi ditampilkan sebelum konfirmasi pemesanan bahwa PijatIn adalah layanan kebugaran keluarga murni.
+- **Disclaimer Modal**: Peringatan hukum resmi ditampilkan sebelum konfirmasi pemesanan bahwa MassaGo adalah layanan kebugaran keluarga murni.
 - **Panic / SOS Emergency Button**: Tombol darurat di aplikasi Mitra & Customer yang langsung mengirimkan koordinat GPS live dan alert prioritas tinggi ke Superadmin Dashboard & tim satgas lapangan.
 - **Blacklist Otomatis**: Pelanggan atau mitra yang terbukti melanggar langsung diblokir NIK/Nomor HP-nya secara permanen.
 
@@ -61,7 +61,7 @@ Karena layanan berlangsung di ruang privat konsumen, keamanan adalah prioritas m
 2. **Night Surcharge (Insentif Malam)**:
    - Order antara pukul 21:00 - 23:00 dikenakan biaya tambahan tarif malam yang 90% dialokasikan langsung ke mitra sebagai insentif keamanan & transportasi.
 3. **Starter Kit Standar Mitra**:
-   - Matras lipat portable higienis, kain sprei alas sekali pakai, aromaterapi resmi PijatIn, seragam polo shirt PijatIn berlogo resmi.
+   - Matras lipat portable higienis, kain sprei alas sekali pakai, aromaterapi resmi MassaGo, seragam polo shirt MassaGo berlogo resmi.
 
 ---
 

@@ -110,7 +110,7 @@ export const PaymentSettingsManager: React.FC = () => {
       setDokuSecretKey(st.doku_secret_key || '');
 
       // QRIS & Commission
-      setQrisUrl(st.qris_image_url || '/qris-pijatin.png');
+      setQrisUrl(st.qris_image_url || '/qris-massago.png');
       setQrisMerchant(st.qris_merchant_name || 'PIJATIN INDONESIA');
       setQrisNmid(st.qris_nmid || 'ID1020030040050');
       setCommissionPercent(st.platform_commission_percent || '20');
@@ -118,7 +118,7 @@ export const PaymentSettingsManager: React.FC = () => {
 
       // Support
       setAdminWa(st.admin_whatsapp || '+6281234567890');
-      setSupportEmail(st.support_email || 'support@pijatin.id');
+      setSupportEmail(st.support_email || 'support@massago.id');
     } catch (err) {
       console.error('Error loading payment data:', err);
     } finally {
@@ -449,9 +449,9 @@ export const PaymentSettingsManager: React.FC = () => {
             <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
               <span className="font-bold text-slate-900 dark:text-white block">URL Notification Webhook Callback:</span>
               <div className="flex items-center gap-2 font-mono text-[11px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
-                <span className="text-emerald-600 truncate">https://pijatin.id/api/midtrans/webhook</span>
+                <span className="text-emerald-600 truncate">https://massago.id/api/midtrans/webhook</span>
                 <button
-                  onClick={() => handleCopy('https://pijatin.id/api/midtrans/webhook', 'webhook')}
+                  onClick={() => handleCopy('https://massago.id/api/midtrans/webhook', 'webhook')}
                   className="ml-auto text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
                 >
                   {copiedId === 'webhook' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -661,7 +661,7 @@ export const PaymentSettingsManager: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="/qris-pijatin.png"
+                  placeholder="/qris-massago.png"
                   value={qrisUrl}
                   onChange={(e) => setQrisUrl(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"
@@ -706,7 +706,7 @@ export const PaymentSettingsManager: React.FC = () => {
               </label>
               <input
                 type="email"
-                placeholder="support@pijatin.id"
+                placeholder="support@massago.id"
                 value={supportEmail}
                 onChange={(e) => setSupportEmail(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"
@@ -762,7 +762,7 @@ export const PaymentSettingsManager: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Nama Pemilik Rekening (Atas Nama)</label>
                 <input
                   type="text"
-                  placeholder="Contoh: PT PijatIn Sejahtera Indonesia"
+                  placeholder="Contoh: PT MassaGo Sejahtera Indonesia"
                   value={formAccountHolder}
                   onChange={(e) => setFormAccountHolder(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-emerald-500"

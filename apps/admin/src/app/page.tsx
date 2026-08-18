@@ -123,28 +123,28 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      q: 'Bagaimana cara memesan layanan pijat di PijatIn?',
-      a: 'Sangat mudah! Anda cukup mengunduh aplikasi PijatIn (atau klik tombol Pesan), pilih jenis layanan yang Anda inginkan (misal Pijat Tradisional atau Refleksi), tentukan waktu (sekarang atau terjadwal), lalu sistem akan mencocokkan mitra terapis terdekat yang langsung meluncur ke lokasi Anda dalam 20-30 menit.'
+      q: 'Bagaimana cara memesan layanan pijat di MassaGo?',
+      a: 'Sangat mudah! Anda cukup mengunduh aplikasi MassaGo (atau klik tombol Pesan), pilih jenis layanan yang Anda inginkan (misal Pijat Tradisional atau Refleksi), tentukan waktu (sekarang atau terjadwal), lalu sistem akan mencocokkan mitra terapis terdekat yang langsung meluncur ke lokasi Anda dalam 20-30 menit.'
     },
     {
       q: 'Apakah saya bisa memilih jenis kelamin (gender) terapis?',
       a: 'Ya, tentu saja! Keamanan dan kenyamanan Anda adalah prioritas utama kami. Di aplikasi, Anda dapat memfilter apakah ingin dilayani oleh Terapis Wanita, Terapis Pria, atau Bebas.'
     },
     {
-      q: 'Perlengkapan apa saja yang dibawa oleh mitra terapis PijatIn?',
+      q: 'Perlengkapan apa saja yang dibawa oleh mitra terapis MassaGo?',
       a: 'Mitra kami membawa starter kit higienis lengkap, meliputi matras lipat portable, kain alas sprei bersih sekali pakai (disposable sheet), minyak aromaterapi bersertifikasi, hand sanitizer, masker, dan handuk bersih.'
     },
     {
       q: 'Metode pembayaran apa saja yang didukung?',
-      a: 'PijatIn mendukung metode pembayaran fleksibel: Tunai langsung di tempat setelah pemijatan selesai, QRIS (Gopay, OVO, Dana, ShopeePay, BCA, Mandiri), Transfer Bank, serta Saldo PijatIn Pay.'
+      a: 'MassaGo mendukung metode pembayaran fleksibel: Tunai langsung di tempat setelah pemijatan selesai, QRIS (Gopay, OVO, Dana, ShopeePay, BCA, Mandiri), Transfer Bank, serta Saldo MassaGo Pay.'
     },
     {
-      q: 'Bagaimana standar keamanan dan etika di PijatIn?',
-      a: 'PijatIn adalah brand layanan kesehatan dan kebugaran profesional keluarga. Seluruh mitra terapis telah melalui verifikasi identitas (KTP/SKCK) dan uji kompetensi. Kami menerapkan kebijakan Strict Anti-Harassment dan tombol SOS Darurat untuk melindungi konsumen maupun mitra.'
+      q: 'Bagaimana standar keamanan dan etika di MassaGo?',
+      a: 'MassaGo adalah brand layanan kesehatan dan kebugaran profesional keluarga. Seluruh mitra terapis telah melalui verifikasi identitas (KTP/SKCK) dan uji kompetensi. Kami menerapkan kebijakan Strict Anti-Harassment dan tombol SOS Darurat untuk melindungi konsumen maupun mitra.'
     },
     {
-      q: 'Bagaimana cara bergabung menjadi Mitra Terapis PijatIn?',
-      a: 'Jika Anda memiliki keahlian memijat, Anda dapat mengunduh aplikasi PijatIn Mitra, mendaftar langsung dengan mengisi data diri dan sertifikat keahlian, atau menghubungi tim pendaftaran mitra kami. Dapatkan bagi hasil adil 80%, jam kerja fleksibel, dan bonus insentif.'
+      q: 'Bagaimana cara bergabung menjadi Mitra Terapis MassaGo?',
+      a: 'Jika Anda memiliki keahlian memijat, Anda dapat mengunduh aplikasi MassaGo Mitra, mendaftar langsung dengan mengisi data diri dan sertifikat keahlian, atau menghubungi tim pendaftaran mitra kami. Dapatkan bagi hasil adil 80%, jam kerja fleksibel, dan bonus insentif.'
     }
   ];
 
@@ -156,7 +156,7 @@ export default function LandingPage() {
         <span className="bg-amber-400 text-emerald-950 font-bold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider animate-pulse">
           PROMO BARU
         </span>
-        <span>Diskon 30% Pengguna Pertama dengan kode voucher: <strong className="underline tracking-wider font-mono">PIJATINBARU</strong></span>
+        <span>Diskon 30% Pengguna Pertama dengan kode voucher: <strong className="underline tracking-wider font-mono">MASSAGOBARU</strong></span>
       </div>
 
       {/* 🧭 NAVIGATION HEADER */}
@@ -166,11 +166,11 @@ export default function LandingPage() {
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-12 h-12 rounded-2xl bg-emerald-600 shadow-md shadow-emerald-500/20 flex items-center justify-center p-1.5 transition-transform duration-300 group-hover:scale-105">
-              <img src="/logo.svg" alt="PijatIn Logo" className="w-full h-full object-contain filter drop-shadow-sm" />
+              <img src="/logo.svg" alt="MassaGo Logo" className="w-full h-full object-contain filter drop-shadow-sm" />
             </div>
             <div>
               <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                PijatIn
+                MassaGo
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
               </span>
               <span className="block text-[10px] font-semibold tracking-widest text-emerald-600 dark:text-emerald-400 uppercase -mt-1">
@@ -321,11 +321,11 @@ export default function LandingPage() {
                   className="w-full sm:w-auto px-7 py-4 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-600/30 rounded-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3 group"
                 >
                   <Download className="w-5 h-5 transition-transform group-hover:translate-y-0.5" />
-                  <span>Download Aplikasi PijatIn</span>
+                  <span>Download Aplikasi MassaGo</span>
                 </button>
 
                 <a
-                  href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20ingin%20memesan%20layanan%20pijat%20panggilan."
+                  href="https://wa.me/6281298765432?text=Halo%20Admin%20MassaGo,%20saya%20ingin%20memesan%20layanan%20pijat%20panggilan."
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto px-6 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2"
@@ -358,10 +358,10 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-emerald-600 p-1 flex items-center justify-center">
-                      <img src="/logo.svg" alt="PijatIn Icon" className="w-full h-full object-contain" />
+                      <img src="/logo.svg" alt="MassaGo Icon" className="w-full h-full object-contain" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">PijatIn Mobile</div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">MassaGo Mobile</div>
                       <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
                         Radar Armada Aktif
@@ -644,7 +644,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Pilih Paket & Waktu</h3>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Buka aplikasi PijatIn, pilih jenis treatment pijat yang diinginkan, dan tentukan apakah ingin dipijat sekarang atau dijadwalkan.
+                Buka aplikasi MassaGo, pilih jenis treatment pijat yang diinginkan, dan tentukan apakah ingin dipijat sekarang atau dijadwalkan.
               </p>
             </div>
 
@@ -691,7 +691,7 @@ export default function LandingPage() {
 
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
                 Punya Keahlian Memijat? <br />
-                <span className="text-emerald-400">Raih Penghasilan Lebih Tinggi Bersama PijatIn.</span>
+                <span className="text-emerald-400">Raih Penghasilan Lebih Tinggi Bersama MassaGo.</span>
               </h2>
 
               <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
@@ -737,11 +737,11 @@ export default function LandingPage() {
                   className="px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Aplikasi PijatIn Mitra</span>
+                  <span>Download Aplikasi MassaGo Mitra</span>
                 </button>
 
                 <a
-                  href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20terapis%20dan%20ingin%20mendaftar%20menjadi%20mitra."
+                  href="https://wa.me/6281298765432?text=Halo%20Admin%20MassaGo,%20saya%20terapis%20dan%20ingin%20mendaftar%20menjadi%20mitra."
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
@@ -755,9 +755,9 @@ export default function LandingPage() {
             <div className="lg:col-span-5 flex justify-center">
               <div className="p-6 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 max-w-sm w-full space-y-4 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-emerald-500 p-2 mx-auto shadow-lg shadow-emerald-500/30">
-                  <img src="/logo.svg" alt="PijatIn Mitra" className="w-full h-full object-contain" />
+                  <img src="/logo.svg" alt="MassaGo Mitra" className="w-full h-full object-contain" />
                 </div>
-                <h3 className="text-xl font-bold">PijatIn Mitra App</h3>
+                <h3 className="text-xl font-bold">MassaGo Mitra App</h3>
                 <p className="text-xs text-slate-300">
                   Aplikasi khusus terapis untuk menerima orderan, navigasi rute GPS ke rumah klien, dan cek saldo harian.
                 </p>
@@ -783,7 +783,7 @@ export default function LandingPage() {
               Pertanyaan yang Sering Diajukan
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Punya pertanyaan seputar layanan dan keamanan PijatIn? Temukan jawabannya di bawah ini.
+              Punya pertanyaan seputar layanan dan keamanan MassaGo? Temukan jawabannya di bawah ini.
             </p>
           </div>
 
@@ -824,13 +824,13 @@ export default function LandingPage() {
             Rasakan Kenyamanan Pijat Profesional Sekarang Juga
           </h2>
           <p className="text-emerald-100 text-sm sm:text-base max-w-2xl mx-auto">
-            Unduh aplikasi resmi PijatIn di smartphone Android Anda dan nikmati promo diskon spesial pengguna baru.
+            Unduh aplikasi resmi MassaGo di smartphone Android Anda dan nikmati promo diskon spesial pengguna baru.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <a
-              href="/apk/PijatIn-Customer.apk"
-              download="PijatIn-Customer.apk"
+              href="/apk/MassaGo-Customer.apk"
+              download="MassaGo-Customer.apk"
               className="px-6 py-3.5 rounded-2xl bg-white text-emerald-950 font-bold text-xs shadow-lg hover:bg-slate-100 transition-all flex items-center gap-2"
             >
               <Smartphone className="w-4 h-4 text-emerald-600" />
@@ -838,8 +838,8 @@ export default function LandingPage() {
             </a>
 
             <a
-              href="/apk/PijatIn-Mitra.apk"
-              download="PijatIn-Mitra.apk"
+              href="/apk/MassaGo-Mitra.apk"
+              download="MassaGo-Mitra.apk"
               className="px-6 py-3.5 rounded-2xl bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-400/40 text-white font-bold text-xs shadow-lg transition-all flex items-center gap-2"
             >
               <Smartphone className="w-4 h-4 text-amber-400" />
@@ -858,9 +858,9 @@ export default function LandingPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-600 p-1 flex items-center justify-center">
-                  <img src="/logo.svg" alt="PijatIn" className="w-full h-full object-contain" />
+                  <img src="/logo.svg" alt="MassaGo" className="w-full h-full object-contain" />
                 </div>
-                <span className="text-xl font-bold text-white tracking-tight">PijatIn</span>
+                <span className="text-xl font-bold text-white tracking-tight">MassaGo</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Platform pemesanan layanan pijat & spa panggilan profesional ke rumah, apartemen, dan hotel. Higienis, terpercaya, dan aman untuk keluarga.
@@ -901,7 +901,7 @@ export default function LandingPage() {
               </p>
               <div className="space-y-1.5 font-medium text-slate-300">
                 <div>WhatsApp CS: +62 812-9876-5432</div>
-                <div>Email: support@pijatin.id</div>
+                <div>Email: support@massago.id</div>
                 <div>Operational Hours: 07:00 - 23:00 WIB</div>
               </div>
             </div>
@@ -909,7 +909,7 @@ export default function LandingPage() {
 
           <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
             <div>
-              &copy; {new Date().getFullYear()} PT PijatIn Sehat Indonesia. All rights reserved.
+              &copy; {new Date().getFullYear()} PT MassaGo Sehat Indonesia. All rights reserved.
             </div>
             <div className="flex items-center gap-6">
               <a href="#faq" className="hover:text-slate-400">Syarat & Ketentuan</a>
@@ -936,10 +936,10 @@ export default function LandingPage() {
             {/* Modal Header */}
             <div className="text-center space-y-2">
               <div className="w-14 h-14 rounded-2xl bg-emerald-600 p-1.5 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <img src="/logo.svg" alt="PijatIn" className="w-full h-full object-contain" />
+                <img src="/logo.svg" alt="MassaGo" className="w-full h-full object-contain" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                Download Aplikasi PijatIn
+                Download Aplikasi MassaGo
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Pilih aplikasi yang ingin Anda unduh langsung ke smartphone Android:
@@ -974,11 +974,11 @@ export default function LandingPage() {
             <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-3 text-center">
               {selectedApp === 'customer' ? (
                 <>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">PijatIn Customer v1.0.0</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">MassaGo Customer v1.0.0</div>
                   <div className="text-xs text-slate-500">Ukuran file: ~26 MB • Android 8.0+</div>
                   <a
-                    href="/apk/PijatIn-Customer.apk"
-                    download="PijatIn-Customer.apk"
+                    href="/apk/MassaGo-Customer.apk"
+                    download="MassaGo-Customer.apk"
                     className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20"
                   >
                     <Download className="w-4 h-4" />
@@ -987,11 +987,11 @@ export default function LandingPage() {
                 </>
               ) : (
                 <>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">PijatIn Mitra Terapis v1.0.0</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">MassaGo Mitra Terapis v1.0.0</div>
                   <div className="text-xs text-slate-500">Ukuran file: ~20 MB • Android 8.0+</div>
                   <a
-                    href="/apk/PijatIn-Mitra.apk"
-                    download="PijatIn-Mitra.apk"
+                    href="/apk/MassaGo-Mitra.apk"
+                    download="MassaGo-Mitra.apk"
                     className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20"
                   >
                     <Download className="w-4 h-4" />

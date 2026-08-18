@@ -79,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
     },
   };
 
-  const current = tabTitles[activeTab] || { title: 'PijatIn Admin', subtitle: 'Command Center' };
+  const current = tabTitles[activeTab] || { title: 'MassaGo Admin', subtitle: 'Command Center' };
 
   return (
     <header className="h-16 px-6 bg-white/90 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0 z-20 transition-colors duration-200">

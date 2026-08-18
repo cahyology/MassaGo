@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "pijatin-admin-backend",
+  "name": "massago-admin-backend",
   "builds": [
     {
       "src": "apps/admin/**",

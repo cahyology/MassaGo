@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'PijatIn — Layanan Pijat & Spa Panggilan Profesional ke Rumah & Hotel',
+  title: 'MassaGo — Layanan Pijat & Spa Panggilan Profesional ke Rumah & Hotel',
   description: 'Pesan terapis pijat profesional terdekat ke rumah, apartemen, atau hotel Anda. Cepat, higienis, terstandarisasi, dan bergaransi.',
   icons: {
     icon: '/favicon.svg',

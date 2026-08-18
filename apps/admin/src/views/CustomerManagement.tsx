@@ -235,7 +235,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
                           </div>
                           <div>
                             <div className="font-bold text-slate-900 dark:text-white">
-                              {cust.full_name || 'Pelanggan PijatIn'}
+                              {cust.full_name || 'Pelanggan MassaGo'}
                             </div>
                             <div className="text-[10px] text-slate-400 font-mono">
                               ID: {cust.id ? cust.id.substring(0, 8) : 'CUST'}...
@@ -290,7 +290,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
                             <a
                               href={`https://wa.me/${waNumber}?text=Halo%20kak%20${encodeURIComponent(
                                 cust.full_name || 'Pelanggan'
-                              )},%20ada%20yang%20bisa%20kami%20bantu%20dari%20Layanan%20Pelanggan%20PijatIn%3F`}
+                              )},%20ada%20yang%20bisa%20kami%20bantu%20dari%20Layanan%20Pelanggan%20MassaGo%3F`}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 transition"
@@ -361,7 +361,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                          {selectedCustomer.full_name || 'Pelanggan PijatIn'}
+                          {selectedCustomer.full_name || 'Pelanggan MassaGo'}
                         </h3>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white">
                           CUSTOMER
@@ -381,7 +381,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
                     <a
                       href={`https://wa.me/${waNumber}?text=Halo%20kak%20${encodeURIComponent(
                         selectedCustomer.full_name || 'Pelanggan'
-                      )},%20ada%20yang%20bisa%20kami%20bantu%20dari%20Layanan%20Pelanggan%20PijatIn%3F`}
+                      )},%20ada%20yang%20bisa%20kami%20bantu%20dari%20Layanan%20Pelanggan%20MassaGo%3F`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/30 transition shrink-0"
@@ -502,7 +502,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
                                     Terapis yang Menangani
                                   </div>
                                   <div className="font-bold text-slate-900 dark:text-white">
-                                    {therapist?.name || ord.therapist_id || 'Terapis Siaga PijatIn'}
+                                    {therapist?.name || ord.therapist_id || 'Terapis Siaga MassaGo'}
                                   </div>
                                 </div>
                               </div>

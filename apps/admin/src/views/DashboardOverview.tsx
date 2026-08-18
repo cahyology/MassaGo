@@ -71,7 +71,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <span className="text-xs text-emerald-100 dark:text-slate-400">• Daerah Istimewa Yogyakarta & Sekitarnya</span>
             </div>
             <h2 className="text-xl font-bold tracking-tight text-white">
-              Platform PijatIn Beroperasi Normal & Optimal
+              Platform MassaGo Beroperasi Normal & Optimal
             </h2>
             <p className="text-xs text-emerald-100 dark:text-slate-300 max-w-xl">
               {onlineMitra} Mitra Terapis siap menerima panggilan di area operasional dengan status sinkronisasi realtime cloud.
@@ -191,7 +191,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-semibold text-slate-900 dark:text-white">
-                          {order.customer_name || 'Pelanggan PijatIn'}
+                          {order.customer_name || 'Pelanggan MassaGo'}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
                           {cleanAddressText(order.address).address}

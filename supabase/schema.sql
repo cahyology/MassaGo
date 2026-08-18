@@ -1,12 +1,12 @@
 -- ====================================================================
--- PijatIn - 100% Complete Production Schema & Direct CRUD Setup
+-- MassaGo - 100% Complete Production Schema & Direct CRUD Setup
 -- Copy and run all SQL statements in Supabase SQL Editor
 -- ====================================================================
 
 -- 1. Aktifkan Ekstensi PostGIS
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- 2. Tabel Customers (Pelanggan PijatIn)
+-- 2. Tabel Customers (Pelanggan MassaGo)
 CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
     phone VARCHAR(20) UNIQUE NOT NULL,
@@ -171,7 +171,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Seed Promo Vouchers
 INSERT INTO promo_vouchers (code, title, description, discount_percent, discount_flat, max_discount, min_spend, is_active)
 VALUES
-('PIJATINBARU', 'Diskon 30% Pengguna Baru PijatIn', 'Potongan s/d Rp35.000 untuk pesanan pertama Anda', 30, 0, 35000, 100000, true),
+('MASSAGOBARU', 'Diskon 30% Pengguna Baru MassaGo', 'Potongan s/d Rp35.000 untuk pesanan pertama Anda', 30, 0, 35000, 100000, true),
 ('HEMATWEEKEND', 'Potongan Langsung Rp 20.000', 'Spesial relaksasi akhir pekan minimal order Rp150.000', 0, 20000, 20000, 150000, true),
 ('SPALUXURY', 'Diskon Rp 50.000 Paket Spa & Scrub', 'Hemat Rp50.000 untuk paket perawatan 120 menit', 0, 50000, 50000, 200000, true)
 ON CONFLICT (code) DO NOTHING;
@@ -187,7 +187,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Seed Default Settings
 INSERT INTO platform_settings (key, value, description)
 VALUES
-('qris_image_url', '/qris-pijatin.png', 'URL / Path Gambar QRIS Statis Platform'),
+('qris_image_url', '/qris-massago.png', 'URL / Path Gambar QRIS Statis Platform'),
 ('qris_merchant_name', 'PIJATIN INDONESIA', 'Nama Merchant Resmi QRIS'),
 ('qris_nmid', 'ID1020030040050', 'National Merchant ID QRIS'),
 ('admin_whatsapp', '+6281234567890', 'Nomor WhatsApp Admin Konfirmasi Pembayaran'),

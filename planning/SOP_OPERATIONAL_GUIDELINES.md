@@ -1,6 +1,6 @@
-# 📜 Standard Operating Procedure (SOP) & Operational Guidelines - PijatIn
+# 📜 Standard Operating Procedure (SOP) & Operational Guidelines - MassaGo
 
-Dokumen standar operasional lapangan untuk mitra terapis, layanan pelanggan (CS), dan penanganan insiden darurat ekosistem PijatIn.
+Dokumen standar operasional lapangan untuk mitra terapis, layanan pelanggan (CS), dan penanganan insiden darurat ekosistem MassaGo.
 
 ---
 
@@ -8,9 +8,9 @@ Dokumen standar operasional lapangan untuk mitra terapis, layanan pelanggan (CS)
 
 ### A. Sebelum Berangkat (Persiapan)
 1. **Pemeriksaan Kelengkapan**:
-   - Seragam resmi PijatIn bersih & rapi.
+   - Seragam resmi MassaGo bersih & rapi.
    - Matras / kain alas steril sekali pakai (*disposable sheet*).
-   - Minyak pijat / *essential oil* resmi PijatIn bersertifikasi BPOM.
+   - Minyak pijat / *essential oil* resmi MassaGo bersertifikasi BPOM.
    - Hand sanitizer, masker, dan handuk bersih.
 2. **Kondisi HP & Baterai**:
    - Baterai HP minimal 40%, GPS aktif dengan akurasi tinggi.

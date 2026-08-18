@@ -1,5 +1,5 @@
 -- ====================================================================
--- PijatIn - Seed Initial Data
+-- MassaGo - Seed Initial Data
 -- ====================================================================
 
 -- 1. Seed Service Packages
@@ -16,7 +16,7 @@ ON CONFLICT (id) DO NOTHING;
 -- 2. Seed Promo Vouchers
 INSERT INTO promo_vouchers (code, title, description, discount_percent, discount_flat, max_discount, min_spend, is_active)
 VALUES
-('PIJATINBARU', 'Diskon 30% Pengguna Baru PijatIn', 'Potongan s/d Rp35.000 untuk pesanan pertama Anda', 30, 0, 35000, 100000, true),
+('MASSAGOBARU', 'Diskon 30% Pengguna Baru MassaGo', 'Potongan s/d Rp35.000 untuk pesanan pertama Anda', 30, 0, 35000, 100000, true),
 ('HEMATWEEKEND', 'Potongan Langsung Rp 20.000', 'Spesial relaksasi akhir pekan minimal order Rp150.000', 0, 20000, 20000, 150000, true),
 ('SPALUXURY', 'Diskon Rp 50.000 Paket Spa & Scrub', 'Hemat Rp50.000 untuk paket perawatan 120 menit', 0, 50000, 50000, 200000, true)
 ON CONFLICT (code) DO NOTHING;

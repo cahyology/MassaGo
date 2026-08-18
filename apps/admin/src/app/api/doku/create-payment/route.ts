@@ -45,14 +45,14 @@ export async function POST(req: NextRequest) {
       },
       customer: {
         id: customer_id || therapist_id || 'CUST-PIJATIN',
-        name: customer_name || 'Pelanggan PijatIn',
+        name: customer_name || 'Pelanggan MassaGo',
         phone: customer_phone || '+6281234567890',
       },
       additional_info: {
         order_id: order_id || '',
         therapist_id: therapist_id || '',
         type,
-        service_name: service_name || 'Layanan PijatIn',
+        service_name: service_name || 'Layanan MassaGo',
       },
     };
 
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Fallback / Simulator Mode (Jika secret key belum diinput atau sandbox)
-    const simulatedPaymentUrl = `${req.nextUrl.origin}/checkout/doku-simulator?invoice=${invoiceNumber}&amount=${amount}&service=${encodeURIComponent(service_name || 'Layanan PijatIn')}&type=${type}&order_id=${order_id || ''}&therapist_id=${therapist_id || ''}`;
+    const simulatedPaymentUrl = `${req.nextUrl.origin}/checkout/doku-simulator?invoice=${invoiceNumber}&amount=${amount}&service=${encodeURIComponent(service_name || 'Layanan MassaGo')}&type=${type}&order_id=${order_id || ''}&therapist_id=${therapist_id || ''}`;
 
     if (order_id) {
       await supabase

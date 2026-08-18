@@ -1,0 +1,353 @@
+package com.massago.customer.ui.navigation
+
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.massago.customer.data.repository.CustomerAuthRepository
+import com.massago.customer.ui.screens.auth.CustomerForgotPasswordScreen
+import com.massago.customer.ui.screens.auth.CustomerLoginScreen
+import com.massago.customer.ui.screens.auth.CustomerOtpScreen
+import com.massago.customer.ui.screens.auth.CustomerRegisterScreen
+import com.massago.customer.ui.screens.chat.CustomerChatScreen
+import com.massago.customer.ui.screens.checkout.CheckoutScreen
+import com.massago.customer.ui.screens.detail.ServiceDetailScreen
+import com.massago.customer.ui.screens.history.CustomerHistoryScreen
+import com.massago.customer.ui.screens.home.CustomerHomeScreen
+import com.massago.customer.ui.screens.profile.CustomerProfileScreen
+import com.massago.customer.ui.screens.tracking.OrderTrackingScreen
+import com.massago.customer.ui.screens.wallet.CustomerWalletScreen
+import com.massago.customer.ui.screens.splash.CustomerSplashScreen
+import com.massago.customer.ui.theme.EmeraldDark
+import com.massago.customer.ui.theme.EmeraldLight
+import com.massago.customer.ui.theme.EmeraldPrimary
+import com.massago.customer.ui.theme.TextMuted
+
+@Composable
+fun CustomerNavigation(
+    navController: NavHostController = rememberNavController()
+) {
+    val authRepo = CustomerAuthRepository.instance
+    val isLoggedIn by authRepo.isLoggedIn.collectAsState()
+    val tempPhone by authRepo.tempPhoneNumber.collectAsState()
+
+    val bottomNavItems = listOf(
+        CustomerScreen.Home,
+        CustomerScreen.History,
+        CustomerScreen.Wallet,
+        CustomerScreen.Profile
+    )
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val showBottomBar = currentRoute in listOf(
+        CustomerScreen.Home.route,
+        CustomerScreen.History.route,
+        CustomerScreen.Wallet.route,
+        CustomerScreen.Profile.route
+    )
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (showBottomBar) {
+                Surface(
+                    color = Color.White,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9))
+                ) {
+                    NavigationBar(
+                        containerColor = Color.White,
+                        tonalElevation = 0.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        bottomNavItems.forEach { screen ->
+                            val isSelected = currentRoute == screen.route
+                            NavigationBarItem(
+                                icon = {
+                                    screen.icon?.let {
+                                        Icon(
+                                            imageVector = it,
+                                            contentDescription = screen.title,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        text = screen.title,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                },
+                                selected = isSelected,
+                                onClick = {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = EmeraldPrimary,
+                                    selectedTextColor = EmeraldPrimary,
+                                    indicatorColor = Color.Transparent,
+                                    unselectedIconColor = Color(0xFF94A3B8),
+                                    unselectedTextColor = Color(0xFF94A3B8)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = CustomerScreen.Splash.route,
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
+            // Splash Route
+            composable(CustomerScreen.Splash.route) {
+                CustomerSplashScreen(
+                    onSplashFinished = {
+                        val destination = if (isLoggedIn) CustomerScreen.Home.route else CustomerScreen.Login.route
+                        navController.navigate(destination) {
+                            popUpTo(CustomerScreen.Splash.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // Auth Routes
+            composable(CustomerScreen.Login.route) {
+                CustomerLoginScreen(
+                    onNavigateToRegister = {
+                        navController.navigate(CustomerScreen.Register.route)
+                    },
+                    onNavigateToForgotPassword = { phone ->
+                        authRepo.setTempPhone(phone)
+                        navController.navigate("customer_forgot_password")
+                    },
+                    onLoginSuccess = {
+                        navController.navigate(CustomerScreen.Home.route) {
+                            popUpTo(CustomerScreen.Login.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable("customer_forgot_password") {
+                CustomerForgotPasswordScreen(
+                    initialPhone = tempPhone,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onOtpSent = { phone ->
+                        authRepo.setTempPhone(phone)
+                        navController.navigate("otp_verification?isForgot=true")
+                    }
+                )
+            }
+
+            composable(
+                route = "otp_verification?isForgot={isForgot}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("isForgot") {
+                        type = androidx.navigation.NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val isForgot = backStackEntry.arguments?.getBoolean("isForgot") ?: false
+                CustomerOtpScreen(
+                    phoneNumber = tempPhone.ifEmpty { "081234567890" },
+                    isForgotPassword = isForgot,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToRegister = {
+                        navController.navigate(CustomerScreen.Register.route)
+                    },
+                    onNavigateToResetPassword = {
+                        navController.navigate(CustomerScreen.ResetPassword.route)
+                    },
+                    onVerificationSuccess = {
+                        navController.navigate(CustomerScreen.Home.route) {
+                            popUpTo(CustomerScreen.Login.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(CustomerScreen.Register.route) {
+                CustomerRegisterScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onRegistrationSuccess = {
+                        navController.navigate(CustomerScreen.Home.route) {
+                            popUpTo(CustomerScreen.Login.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(CustomerScreen.ResetPassword.route) {
+                com.massago.customer.ui.screens.auth.CustomerResetPasswordScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onResetSuccess = {
+                        navController.navigate(CustomerScreen.Home.route) {
+                            popUpTo(CustomerScreen.Login.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // Home Screen
+            composable(CustomerScreen.Home.route) {
+                CustomerHomeScreen(
+                    onNavigateToDetail = { serviceId ->
+                        navController.navigate(CustomerScreen.Detail.createRoute(serviceId))
+                    },
+                    onNavigateToTracking = {
+                        navController.navigate(CustomerScreen.Tracking.route)
+                    },
+                    onNavigateToWallet = {
+                        navController.navigate(CustomerScreen.Wallet.route)
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate(CustomerScreen.History.route)
+                    }
+                )
+            }
+
+            // Service Detail Screen
+            composable(
+                route = CustomerScreen.Detail.route,
+                arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val serviceId = backStackEntry.arguments?.getString("serviceId") ?: "SRV-TRAD"
+                ServiceDetailScreen(
+                    serviceId = serviceId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCheckout = { srvId, duration, aromaId, focusAreas, pressure, gender ->
+                        navController.navigate(
+                            CustomerScreen.Checkout.createRoute(
+                                srvId, duration, aromaId, focusAreas, pressure, gender
+                            )
+                        )
+                    }
+                )
+            }
+
+            // Checkout Screen
+            composable(
+                route = CustomerScreen.Checkout.route,
+                arguments = listOf(
+                    navArgument("serviceId") { type = NavType.StringType },
+                    navArgument("duration") { type = NavType.IntType },
+                    navArgument("aromaId") { type = NavType.StringType },
+                    navArgument("focusAreas") { type = NavType.StringType },
+                    navArgument("pressure") { type = NavType.StringType },
+                    navArgument("gender") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val serviceId = backStackEntry.arguments?.getString("serviceId") ?: "SRV-TRAD"
+                val duration = backStackEntry.arguments?.getInt("duration") ?: 90
+                val aromaId = backStackEntry.arguments?.getString("aromaId") ?: "aroma-olive"
+                val focusAreas = backStackEntry.arguments?.getString("focusAreas") ?: "Pundak"
+                val pressure = backStackEntry.arguments?.getString("pressure") ?: "MEDIUM"
+                val gender = backStackEntry.arguments?.getString("gender") ?: "Bebas"
+
+                CheckoutScreen(
+                    serviceId = serviceId,
+                    durationMinutes = duration,
+                    aromaId = aromaId,
+                    focusAreasStr = focusAreas,
+                    pressureStr = pressure,
+                    genderPreference = gender,
+                    onNavigateBack = { navController.popBackStack() },
+                    onOrderPlaced = {
+                        navController.navigate(CustomerScreen.Tracking.route) {
+                            popUpTo(CustomerScreen.Home.route)
+                        }
+                    }
+                )
+            }
+
+            // Tracking Screen
+            composable(CustomerScreen.Tracking.route) {
+                OrderTrackingScreen(
+                    onNavigateBack = { navController.navigate(CustomerScreen.Home.route) },
+                    onNavigateToChat = { navController.navigate(CustomerScreen.Chat.route) }
+                )
+            }
+
+            // Chat Screen
+            composable(CustomerScreen.Chat.route) {
+                CustomerChatScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // History Screen
+            composable(CustomerScreen.History.route) {
+                CustomerHistoryScreen(
+                    onNavigateBack = { navController.navigate(CustomerScreen.Home.route) },
+                    onReorder = { serviceId ->
+                        navController.navigate(CustomerScreen.Detail.createRoute(serviceId))
+                    }
+                )
+            }
+
+            // Wallet Screen
+            composable(CustomerScreen.Wallet.route) {
+                CustomerWalletScreen(
+                    onNavigateBack = { navController.navigate(CustomerScreen.Home.route) }
+                )
+            }
+
+            // Profile Screen
+            composable(CustomerScreen.Profile.route) {
+                CustomerProfileScreen(
+                    onNavigateBack = { navController.navigate(CustomerScreen.Home.route) },
+                    onLogout = {
+                        navController.navigate(CustomerScreen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}

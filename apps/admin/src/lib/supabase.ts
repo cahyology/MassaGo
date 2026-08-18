@@ -48,7 +48,7 @@ export const CANONICAL_BANK_ACCOUNTS: PlatformBankAccount[] = [
 
 // Canonical Platform Settings
 export const CANONICAL_SETTINGS: Record<string, string> = {
-  qris_image_url: '/qris-pijatin.png',
+  qris_image_url: '/qris-massago.png',
   qris_merchant_name: 'PIJATIN INDONESIA',
   qris_nmid: 'ID1020030040050',
   admin_whatsapp: '+6281234567890',
@@ -140,8 +140,8 @@ export const CANONICAL_SERVICE_PACKAGES: ServicePackage[] = [
 // Canonical Standard Promo Vouchers
 export const CANONICAL_PROMO_VOUCHERS: PromoVoucher[] = [
   {
-    code: 'PIJATINBARU',
-    title: 'Diskon 30% Pengguna Baru PijatIn',
+    code: 'MASSAGOBARU',
+    title: 'Diskon 30% Pengguna Baru MassaGo',
     description: 'Potongan s/d Rp35.000 untuk pesanan pertama Anda',
     discount_percent: 30,
     discount_flat: 0,

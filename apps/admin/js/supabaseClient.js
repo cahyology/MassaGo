@@ -1,5 +1,5 @@
 // ====================================================================
-// PijatIn Admin - Live Supabase Client Integration
+// MassaGo Admin - Live Supabase Client Integration
 // ====================================================================
 
 const SUPABASE_CONFIG = {
