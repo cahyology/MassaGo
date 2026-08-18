@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PijatIn - Layanan Pijat & Spa Panggilan Profesional ke Rumah Anda</title>
+  <meta name="description" content="Pesan layanan pijat tradisional, refleksi, scrub spa, dan sport massage panggilan profesional. Terapis bersertifikat, higienis, dan tiba dalam 30 menit ke rumah, hotel, kost, atau apartemen Anda." />
+  <meta name="keywords" content="pijat panggilan, pijat tradisional, refleksi panggilan, massage terdekat, pijat refleksi, pijatin, spa panggilan" />
+  <meta name="theme-color" content="#059669" />
+  
+  <!-- Open Graph / SEO -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="PijatIn - Layanan Pijat & Spa Panggilan Profesional" />
+  <meta property="og:description" content="Terapis tersertifikasi, aman untuk keluarga, higienis & siap datang ke lokasi Anda dalam 30 menit." />
+  <meta property="og:image" content="./public/logo.png" />
+  <meta property="og:url" content="https://pijatin.com" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="./public/favicon.svg" />
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- TOP ANNOUNCEMENT BANNER -->
+  <div class="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white text-xs md:text-sm py-2 px-4 text-center font-medium shadow-sm flex items-center justify-center gap-2">
+    <span class="bg-amber-400 text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Promo</span>
+    <span>Diskon <strong>30%</strong> untuk Pesanan Pertama Anda! Gunakan kode: <strong>PIJATINBARU</strong></span>
+  </div>
+
+  <!-- NAVBAR -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 transition-all duration-300 shadow-sm" id="navbar">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="#" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center p-1.5 shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+          <img src="./public/logo_white.svg" alt="PijatIn Logo" class="w-full h-full object-contain" />
+        </div>
+        <div class="flex flex-col">
+          <span class="font-outfit text-2xl font-bold tracking-tight text-slate-900 leading-none">Pijat<span class="text-emerald-600">In</span></span>
+          <span class="text-[10px] font-semibold text-emerald-700 uppercase tracking-widest leading-tight mt-0.5">Massage & Wellness</span>
+        </div>
+      </a>
+
+      <!-- Desktop Navigation Links -->
+      <nav class="hidden md:flex items-center gap-8 font-medium text-sm text-slate-600">
+        <a href="#layanan" class="hover:text-emerald-600 transition-colors">Layanan & Tarif</a>
+        <a href="#keunggulan" class="hover:text-emerald-600 transition-colors">Keunggulan</a>
+        <a href="#cara-pesan" class="hover:text-emerald-600 transition-colors">Cara Pesan</a>
+        <a href="#testimoni" class="hover:text-emerald-600 transition-colors">Ulasan Klien</a>
+        <a href="#mitra" class="text-amber-600 font-semibold hover:text-amber-700 transition-colors">Gabung Mitra 🤝</a>
+      </nav>
+
+      <!-- Desktop CTA Buttons -->
+      <div class="hidden lg:flex items-center gap-3">
+        <a href="#download" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition-colors border border-emerald-200">
+          <i class="fa-brands fa-android text-base"></i> Download APK
+        </a>
+        <a href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20ingin%20pesan%20layanan%20pijat" target="_blank" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 hover:shadow-emerald-600/40 hover:-translate-y-0.5 transition-all">
+          <i class="fa-brands fa-whatsapp text-lg"></i> Pesan Sekarang
+        </a>
+      </div>
+
+      <!-- Mobile Menu Button -->
+      <button id="mobileMenuBtn" class="md:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Buka Menu">
+        <i class="fa-solid fa-bars text-xl" id="menuIcon"></i>
+      </button>
+
+    </div>
+
+    <!-- Mobile Drawer Menu -->
+    <div id="mobileMenu" class="hidden md:hidden bg-white border-b border-slate-200 px-5 pt-3 pb-6 space-y-4 shadow-xl">
+      <nav class="flex flex-col space-y-3 font-medium text-base text-slate-700">
+        <a href="#layanan" class="mobile-nav-link py-2 border-b border-slate-100">Layanan & Tarif</a>
+        <a href="#keunggulan" class="mobile-nav-link py-2 border-b border-slate-100">Keunggulan Kami</a>
+        <a href="#cara-pesan" class="mobile-nav-link py-2 border-b border-slate-100">Cara Pesan 3 Langkah</a>
+        <a href="#testimoni" class="mobile-nav-link py-2 border-b border-slate-100">Testimoni Klien</a>
+        <a href="#mitra" class="mobile-nav-link py-2 text-amber-600 font-semibold border-b border-slate-100">Daftar Jadi Mitra Terapis</a>
+      </nav>
+      <div class="pt-2 flex flex-col gap-3">
+        <a href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20ingin%20pesan%20layanan%20pijat" target="_blank" class="w-full py-3.5 rounded-xl bg-emerald-600 text-white text-center font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30">
+          <i class="fa-brands fa-whatsapp text-xl"></i> Pesan via WhatsApp
+        </a>
+        <a href="#download" class="w-full py-3 rounded-xl bg-emerald-50 text-emerald-700 text-center font-semibold border border-emerald-200 flex items-center justify-center gap-2">
+          <i class="fa-brands fa-android text-lg"></i> Download Aplikasi Android
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="relative overflow-hidden pt-8 pb-16 md:pt-16 md:pb-24 bg-gradient-to-b from-emerald-50/60 via-slate-50 to-white">
+    <!-- Ambient Background Blobs -->
+    <div class="absolute -top-40 -right-40 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute top-1/2 -left-40 w-80 h-80 bg-teal-200/40 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        
+        <!-- Left Hero Copy -->
+        <div class="lg:col-span-7 space-y-6 text-center lg:text-left">
+          
+          <!-- Trust Pill -->
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100/80 border border-emerald-200/80 text-emerald-800 text-xs sm:text-sm font-semibold shadow-xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>⭐ Layanan Pijat Panggilan Terpercaya #1 di Indonesia</span>
+          </div>
+
+          <!-- Main Headline -->
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
+            Kembalikan Kebugaran Tubuh, <br class="hidden sm:inline" />
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Terapis Datang ke Tempat Anda</span>
+          </h1>
+
+          <!-- Subtitle -->
+          <p class="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
+            Pesan terapis pijat profesional, bersertifikat, dan terpercaya langsung ke rumah, apartemen, hotel, atau kantor Anda. Cepat tiba dalam <strong>30 menit</strong> dengan standar higienis steril.
+          </p>
+
+          <!-- Key Feature Bullets -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-left max-w-lg mx-auto lg:mx-0">
+            <div class="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/70 shadow-xs">
+              <i class="fa-solid fa-certificate text-emerald-600 text-lg"></i>
+              <span class="text-xs font-semibold text-slate-700">Terapis Bersertifikat</span>
+            </div>
+            <div class="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/70 shadow-xs">
+              <i class="fa-solid fa-shield-halved text-emerald-600 text-lg"></i>
+              <span class="text-xs font-semibold text-slate-700">100% Bebas Plus-Plus</span>
+            </div>
+            <div class="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/70 shadow-xs col-span-2 sm:col-span-1">
+              <i class="fa-solid fa-bolt-lightning text-amber-500 text-lg"></i>
+              <span class="text-xs font-semibold text-slate-700">Tiba dlm 30 Menit</span>
+            </div>
+          </div>
+
+          <!-- Hero Action Buttons -->
+          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
+            <a href="#kalkulator" class="w-full sm:w-auto px-7 py-4 rounded-2xl bg-emerald-600 text-white font-bold text-base shadow-xl shadow-emerald-600/30 hover:bg-emerald-700 hover:shadow-emerald-600/40 hover:-translate-y-0.5 transition-all text-center flex items-center justify-center gap-3">
+              <i class="fa-solid fa-calendar-check text-lg"></i>
+              <span>Hitung Biaya & Pesan</span>
+            </a>
+            <a href="https://wa.me/6281298765432?text=Halo%20PijatIn,%20saya%20ingin%20order%20terapis%20ke%20lokasi%20saya" target="_blank" class="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white text-slate-800 font-bold text-base border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 shadow-sm transition-all text-center flex items-center justify-center gap-2.5">
+              <i class="fa-brands fa-whatsapp text-emerald-600 text-xl"></i>
+              <span>Pesan via WhatsApp</span>
+            </a>
+          </div>
+
+          <!-- Social Proof Rating -->
+          <div class="pt-4 flex items-center justify-center lg:justify-start gap-4 border-t border-slate-200/80">
+            <div class="flex -space-x-2">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Client Avatar" class="w-9 h-9 rounded-full border-2 border-white object-cover" />
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" alt="Client Avatar" class="w-9 h-9 rounded-full border-2 border-white object-cover" />
+              <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80" alt="Client Avatar" class="w-9 h-9 rounded-full border-2 border-white object-cover" />
+              <div class="w-9 h-9 rounded-full border-2 border-white bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">+10k</div>
+            </div>
+            <div class="text-left text-xs sm:text-sm">
+              <div class="flex text-amber-400 text-xs">
+                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                <span class="ml-1 text-slate-800 font-bold">4.9 / 5.0</span>
+              </div>
+              <span class="text-slate-500 font-medium">Dari 10.000+ sesi pemijatan sukses</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Hero Visual Card -->
+        <div class="lg:col-span-5 relative">
+          <!-- Glassmorphic Card Container -->
+          <div class="relative mx-auto max-w-sm sm:max-w-md bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-100">
+            
+            <!-- Floating Badge Top Right -->
+            <div class="absolute -top-4 -right-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+              <i class="fa-solid fa-sparkles"></i> Siap Meluncur
+            </div>
+
+            <!-- Card Header (App Mockup View) -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-emerald-600 flex items-center justify-center p-2 shadow-md">
+                  <img src="./public/logo_white.svg" alt="PijatIn App" class="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h2 class="font-outfit font-bold text-slate-900 text-base">PijatIn App Live</h2>
+                  <p class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> 18 Terapis Online Sekitar Anda
+                  </p>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 bg-slate-100 text-slate-600 font-bold text-xs rounded-lg">GPS Active</span>
+            </div>
+
+            <!-- Service Spotlight Box -->
+            <div class="mt-4 p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-100 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg shadow-sm">
+                  💆‍♂️
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Pijat Tradisional Jawa</h3>
+                  <p class="text-xs text-slate-500">Durasi 90 Menit • Relaksasi Total</p>
+                </div>
+              </div>
+              <span class="text-emerald-700 font-extrabold text-sm">Rp 160.000</span>
+            </div>
+
+            <!-- Estimated Arrival Status -->
+            <div class="mt-4 p-4 bg-slate-900 rounded-2xl text-white space-y-3 shadow-md">
+              <div class="flex items-center justify-between text-xs text-slate-300">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-person-walking-luggage text-emerald-400"></i> Mitra Terapis</span>
+                <span class="text-emerald-400 font-bold">Tiba dlm ~18 Mnt</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80" alt="Therapist" class="w-11 h-11 rounded-full object-cover border-2 border-emerald-500" />
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-sm text-white">Siti Rahmawati</span>
+                    <span class="text-amber-400 font-bold text-xs"><i class="fa-solid fa-star text-[10px]"></i> 4.96</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400">Terapis Bersertifikasi BNSP • 3.800+ Jam</p>
+                </div>
+              </div>
+              <!-- Live Progress Bar -->
+              <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-3/4 rounded-full"></div>
+              </div>
+            </div>
+
+            <!-- Quick Booking Trigger -->
+            <div class="mt-4 pt-2">
+              <a href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20mau%20pesan%20terapis%20Pijat%20Tradisional%2090%20menit" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm text-center block transition-colors shadow-md shadow-emerald-600/20">
+                Pesan Terapis Ini Sekarang <i class="fa-solid fa-arrow-right ml-1"></i>
+              </a>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST STATS COUNTER -->
+  <section class="py-8 bg-white border-y border-slate-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div class="space-y-1">
+          <p class="font-outfit text-3xl sm:text-4xl font-extrabold text-emerald-600">10.000+</p>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">Order Selesai Puas</p>
+        </div>
+        <div class="space-y-1">
+          <p class="font-outfit text-3xl sm:text-4xl font-extrabold text-slate-900">4.9 / 5.0</p>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">Rating Kepuasan Klien</p>
+        </div>
+        <div class="space-y-1">
+          <p class="font-outfit text-3xl sm:text-4xl font-extrabold text-emerald-600">250+</p>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">Mitra Terapis Tersertifikasi</p>
+        </div>
+        <div class="space-y-1">
+          <p class="font-outfit text-3xl sm:text-4xl font-extrabold text-slate-900">&lt; 30 Mnt</p>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">Rata-rata Waktu Tiba</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICE CATALOG & PRICE CALCULATOR -->
+  <section id="layanan" class="py-16 md:py-24 bg-slate-50 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-4 mb-12">
+        <span class="text-emerald-700 text-xs sm:text-sm font-bold uppercase tracking-widest bg-emerald-100 px-3 py-1 rounded-full">Katalog & Tarif Transparan</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 font-outfit">
+          Pilihan Paket Layanan Pijat Panggilan
+        </h2>
+        <p class="text-slate-600 text-sm sm:text-base">
+          Tarif resmi dan transparan tanpa biaya tersembunyi. Sudah termasuk biaya transportasi terapis, minyak aromaterapi resmi BPOM, dan sprei alas steril.
+        </p>
+      </div>
+
+      <!-- Service Selector Tabs & Calculator -->
+      <div id="kalkulator" class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 max-w-4xl mx-auto">
+        
+        <!-- Step 1: Select Service -->
+        <div class="space-y-3 mb-6">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">1. Pilih Jenis Layanan</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="serviceButtonsContainer">
+            <!-- Dynamically populated via script.js -->
+          </div>
+        </div>
+
+        <!-- Step 2: Select Duration -->
+        <div class="space-y-3 mb-8">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">2. Pilih Durasi Waktu</label>
+          <div class="grid grid-cols-3 gap-3" id="durationButtonsContainer">
+            <!-- Dynamically populated via script.js -->
+          </div>
+        </div>
+
+        <!-- Live Price Calculation Result Card -->
+        <div class="p-6 bg-gradient-to-br from-emerald-800 to-teal-900 rounded-2xl text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+          <div class="space-y-2 text-center md:text-left">
+            <span class="text-xs text-emerald-300 font-semibold tracking-wide uppercase">Rincian Paket Terpilih</span>
+            <h3 class="text-xl sm:text-2xl font-bold font-outfit" id="calcServiceName">Pijat Tradisional Jawa</h3>
+            <p class="text-xs sm:text-sm text-slate-200 max-w-md" id="calcServiceDesc">
+              Relaksasi seluruh tubuh dengan teknik urut Jawa turun-temurun untuk melancarkan sirkulasi darah dan meredakan pegal linu.
+            </p>
+            <div class="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
+              <span class="text-[11px] bg-emerald-700/60 px-2.5 py-1 rounded-md border border-emerald-500/30">
+                <i class="fa-solid fa-clock text-amber-400 mr-1"></i> <span id="calcDurationText">90 Menit</span>
+              </span>
+              <span class="text-[11px] bg-emerald-700/60 px-2.5 py-1 rounded-md border border-emerald-500/30">
+                <i class="fa-solid fa-check text-emerald-400 mr-1"></i> Termasuk Minyak & Alas Steril
+              </span>
+            </div>
+          </div>
+
+          <div class="text-center md:text-right min-w-[200px] space-y-3">
+            <div>
+              <span class="text-xs text-slate-300 block">Total Biaya Layanan</span>
+              <span class="font-outfit text-3xl sm:text-4xl font-extrabold text-amber-400" id="calcPriceDisplay">Rp 160.000</span>
+            </div>
+            <a id="btnOrderNow" href="#" target="_blank" class="w-full py-3.5 px-6 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-sm shadow-md transition-all flex items-center justify-center gap-2">
+              <i class="fa-brands fa-whatsapp text-lg"></i> Pesan Sekarang
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- WHY CHOOSE PIJATIN (VALUE PROPOSITION) -->
+  <section id="keunggulan" class="py-16 md:py-24 bg-white relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <span class="text-emerald-700 text-xs sm:text-sm font-bold uppercase tracking-widest bg-emerald-100 px-3 py-1 rounded-full">Standar Mutu PijatIn</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 font-outfit">
+          Mengapa Ribuan Keluarga & Profesional Memilih PijatIn?
+        </h2>
+        <p class="text-slate-600 text-sm sm:text-base">
+          Kami menempatkan keselamatan, etika profesional, dan kepuasan pelanggan sebagai prioritas nomor satu.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Feature Card 1 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:shadow-xl hover:border-emerald-200 transition-all group">
+          <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-lg mb-2">Terapis Terverifikasi & SKCK</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Semua mitra melewati seleksi identitas KTP ketat, SKCK kepolisian, dan tes kompetensi pemijatan profesional.
+          </p>
+        </div>
+
+        <!-- Feature Card 2 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:shadow-xl hover:border-emerald-200 transition-all group">
+          <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
+            <i class="fa-solid fa-pump-soap"></i>
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-lg mb-2">Perlengkapan Steril & Higienis</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Terapis membawa sprei alas steril sekali pakai (*disposable*), hand sanitizer, masker, dan minyak aromaterapi bersertifikasi BPOM.
+          </p>
+        </div>
+
+        <!-- Feature Card 3 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:shadow-xl hover:border-emerald-200 transition-all group">
+          <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
+            <i class="fa-solid fa-venus-mars"></i>
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-lg mb-2">Bebas Pilih Gender Terapis</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Kenyamanan Anda adalah prioritas. Anda leluasa menentukan preferensi terapis wanita atau terapis pria sesuai kebutuhan.
+          </p>
+        </div>
+
+        <!-- Feature Card 4 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:shadow-xl hover:border-emerald-200 transition-all group">
+          <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
+            <i class="fa-solid fa-receipt"></i>
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-lg mb-2">Tanpa Biaya Tersembunyi</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Harga yang Anda lihat adalah harga final. Pembayaran fleksibel dapat dilakukan tunai di tempat atau transfer/QRIS resmi.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- STRICT ETHICS & SAFETY NOTICE -->
+  <section class="py-10 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center text-2xl shrink-0">
+          <i class="fa-solid fa-handcuffs"></i>
+        </div>
+        <div>
+          <h3 class="font-outfit font-bold text-base sm:text-lg text-white">Komitmen Mutlak: 100% Layanan Kesehatan Murni</h3>
+          <p class="text-xs sm:text-sm text-slate-300">
+            PijatIn menolak tegas segala bentuk layanan ilegal/asusila. Seluruh sesi dipantau dengan protokol keamanan & tombol SOS darurat.
+          </p>
+        </div>
+      </div>
+      <div class="shrink-0">
+        <span class="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-xs font-semibold uppercase tracking-wider text-emerald-300">
+          🛡️ Family & Professional Safe
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW TO ORDER (3 EASY STEPS) -->
+  <section id="cara-pesan" class="py-16 md:py-24 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <span class="text-emerald-700 text-xs sm:text-sm font-bold uppercase tracking-widest bg-emerald-100 px-3 py-1 rounded-full">Praktis & Mudah</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 font-outfit">
+          Cara Pesan Terapis Hanya dalam 3 Langkah
+        </h2>
+        <p class="text-slate-600 text-sm sm:text-base">
+          Tidak perlu macet di jalan ke tempat spa. Cukup beberapa sentuhan di ponsel Anda.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+        
+        <!-- Step 1 -->
+        <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-lg text-center space-y-4 relative">
+          <div class="w-16 h-16 rounded-2xl bg-emerald-600 text-white font-outfit font-extrabold text-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/30">
+            1
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-xl">Pilih Layanan & Lokasi</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Tentukan paket pijat yang Anda butuhkan (Tradisional, Refleksi, Spa), pilih durasi, dan tentukan alamat tujuan Anda.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-lg text-center space-y-4 relative">
+          <div class="w-16 h-16 rounded-2xl bg-emerald-600 text-white font-outfit font-extrabold text-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/30">
+            2
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-xl">Terapis Meluncur Segera</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Sistem otomatis mencocokkan terapis terdekat yang langsung berangkat membawa seluruh perlengkapan steril lengkap.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-lg text-center space-y-4 relative">
+          <div class="w-16 h-16 rounded-2xl bg-emerald-600 text-white font-outfit font-extrabold text-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/30">
+            3
+          </div>
+          <h3 class="font-outfit font-bold text-slate-900 text-xl">Relaksasi & Selesai</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Nikmati pijatan berkualitas dari terapis ahli kami, kemudian lakukan pembayaran praktis tunai atau non-tunai setelah selesai.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CUSTOMER TESTIMONIALS -->
+  <section id="testimoni" class="py-16 md:py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <span class="text-emerald-700 text-xs sm:text-sm font-bold uppercase tracking-widest bg-emerald-100 px-3 py-1 rounded-full">Kata Mereka</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 font-outfit">
+          Apa Kata Pelanggan Setia PijatIn?
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Review 1 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 space-y-4 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex text-amber-400 text-sm">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+            </div>
+            <p class="text-sm text-slate-700 italic leading-relaxed">
+              "Paling juara! Setelah seharian meeting dan badan remuk, pesan jam 8 malam dalam 20 menit terapis sudah sampai ke apartemen. Tekanannya pas dan alatnya bersih wangi."
+            </p>
+          </div>
+          <div class="flex items-center gap-3 pt-2 border-t border-slate-200/60">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Budi Santoso" class="w-10 h-10 rounded-full object-cover" />
+            <div>
+              <p class="font-bold text-sm text-slate-900">Clarissa Putri</p>
+              <p class="text-xs text-slate-500">Karyawan Swasta • Jakarta Selatan</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review 2 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 space-y-4 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex text-amber-400 text-sm">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+            </div>
+            <p class="text-sm text-slate-700 italic leading-relaxed">
+              "Sangat nyaman untuk keluarga. Istri saya pesan terapis wanita untuk pijat pasca melahirkan, terapisnya sangat sopan dan paham anatomi otot. Rekomendasi banget!"
+            </p>
+          </div>
+          <div class="flex items-center gap-3 pt-2 border-t border-slate-200/60">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" alt="Hendra Wijaya" class="w-10 h-10 rounded-full object-cover" />
+            <div>
+              <p class="font-bold text-sm text-slate-900">dr. Hendra Wijaya</p>
+              <p class="text-xs text-slate-500">Dokter Umum • Bandung</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review 3 -->
+        <div class="p-6 rounded-3xl bg-slate-50 border border-slate-100 space-y-4 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex text-amber-400 text-sm">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+            </div>
+            <p class="text-sm text-slate-700 italic leading-relaxed">
+              "Layanan Deep Tissue Massage nya mantap sekali buat yang rutin olahraga gym/lari. Otot kaku langsung rilis. Aplikasinya juga gampang banget dipake."
+            </p>
+          </div>
+          <div class="flex items-center gap-3 pt-2 border-t border-slate-200/60">
+            <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80" alt="Dimas Anggoro" class="w-10 h-10 rounded-full object-cover" />
+            <div>
+              <p class="font-bold text-sm text-slate-900">Dimas Pratama</p>
+              <p class="text-xs text-slate-500">Marathon Runner • Surabaya</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- MITRA RECRUITMENT CTA -->
+  <section id="mitra" class="py-16 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700 text-white relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        
+        <div class="lg:col-span-8 space-y-4 text-center lg:text-left">
+          <span class="bg-amber-400 text-slate-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Peluang Karir & Kemitraan</span>
+          <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-outfit">
+            Punya Keahlian Memijat? Bergabunglah Menjadi Mitra PijatIn!
+          </h2>
+          <p class="text-emerald-100 text-sm sm:text-base max-w-2xl">
+            Dapatkan penghasilan harian hingga <strong>Rp 5.000.000 - Rp 10.000.000/bulan</strong> dengan bagi hasil adil 80%, jam kerja 100% fleksibel, dan pencairan dana instan langsung ke rekening Anda.
+          </p>
+          <div class="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2 text-xs sm:text-sm font-semibold">
+            <span><i class="fa-solid fa-check-circle text-amber-300 mr-1"></i> Bagi Hasil 80%</span>
+            <span><i class="fa-solid fa-check-circle text-amber-300 mr-1"></i> Jam Kerja Bebas</span>
+            <span><i class="fa-solid fa-check-circle text-amber-300 mr-1"></i> Bonus & Tip 100% Milik Mitra</span>
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 text-center lg:text-right">
+          <a href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20terapis%20profesional%20ingin%20mendaftar%20menjadi%20mitra%20PijatIn" target="_blank" class="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-base shadow-xl transition-all">
+            <i class="fa-solid fa-handshake text-xl"></i>
+            <span>Daftar Mitra Sekarang</span>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD APPS SECTION -->
+  <section id="download" class="py-16 md:py-24 bg-slate-900 text-white relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
+      
+      <div class="max-w-2xl mx-auto space-y-3">
+        <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-outfit">
+          Download Aplikasi PijatIn Sekarang
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base">
+          Nikmati kemudahan pesan pijat dengan live GPS tracking, riwayat pemesanan, dan promo voucher eksklusif.
+        </p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+        
+        <!-- Customer APK Download -->
+        <a href="./public/apk/PijatIn-Customer-v1.0.apk" download class="w-full sm:w-auto px-6 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-3 shadow-lg shadow-emerald-600/30 transition-all">
+          <i class="fa-brands fa-android text-2xl"></i>
+          <div class="text-left">
+            <span class="text-[10px] block opacity-80 uppercase tracking-wider">Aplikasi Pelanggan</span>
+            <span class="text-sm font-extrabold">Download Customer APK</span>
+          </div>
+        </a>
+
+        <!-- Mitra APK Download -->
+        <a href="./public/apk/PijatIn-Mitra-v1.0.apk" download class="w-full sm:w-auto px-6 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm flex items-center justify-center gap-3 border border-slate-700 transition-all">
+          <i class="fa-solid fa-user-gear text-2xl text-emerald-400"></i>
+          <div class="text-left">
+            <span class="text-[10px] block opacity-80 uppercase tracking-wider">Aplikasi Terapis</span>
+            <span class="text-sm font-extrabold">Download Mitra APK</span>
+          </div>
+        </a>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="bg-slate-950 text-slate-400 text-xs sm:text-sm py-12 border-t border-slate-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+        
+        <!-- Col 1: Brand -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center p-1.5 shadow-sm">
+              <img src="./public/logo_white.svg" alt="PijatIn" class="w-full h-full object-contain" />
+            </div>
+            <span class="font-outfit text-xl font-bold text-white">Pijat<span class="text-emerald-500">In</span></span>
+          </div>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Platform layanan pijat panggilan profesional dan spa keluarga terpercaya di Indonesia.
+          </p>
+        </div>
+
+        <!-- Col 2: Layanan -->
+        <div class="space-y-3">
+          <h4 class="font-bold text-white text-sm">Layanan Kami</h4>
+          <ul class="space-y-2 text-xs">
+            <li><a href="#layanan" class="hover:text-emerald-400 transition-colors">Pijat Tradisional Jawa</a></li>
+            <li><a href="#layanan" class="hover:text-emerald-400 transition-colors">Refleksi Kaki & Akupresur</a></li>
+            <li><a href="#layanan" class="hover:text-emerald-400 transition-colors">Deep Tissue & Sport Massage</a></li>
+            <li><a href="#layanan" class="hover:text-emerald-400 transition-colors">Body Scrub & Spa Aromaterapi</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Bantuan -->
+        <div class="space-y-3">
+          <h4 class="font-bold text-white text-sm">Bantuan & Legal</h4>
+          <ul class="space-y-2 text-xs">
+            <li><a href="#keunggulan" class="hover:text-emerald-400 transition-colors">Standar Keamanan & SOP</a></li>
+            <li><a href="#mitra" class="hover:text-emerald-400 transition-colors">Pusat Bantuan Mitra</a></li>
+            <li><a href="https://wa.me/6281298765432" class="hover:text-emerald-400 transition-colors">Customer Service 24/7</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Kontak -->
+        <div class="space-y-3">
+          <h4 class="font-bold text-white text-sm">Hubungi Kami</h4>
+          <p class="text-xs text-slate-500">WhatsApp CS: +62 812-9876-5432</p>
+          <p class="text-xs text-slate-500">Email: help@pijatin.com</p>
+          <p class="text-xs text-slate-500">Jam Layanan: 07:00 - 23:00 WIB</p>
+        </div>
+
+      </div>
+
+      <div class="border-t border-slate-900 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+        <p>&copy; 2026 PijatIn Indonesia. Hak Cipta Dilindungi Undang-Undang.</p>
+        <p class="flex items-center gap-1">Dibuat dengan standar profesional & kenyamanan keluarga ❤️</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- FLOATING QUICK WHATSAPP BUTTON (MOBILE & DESKTOP) -->
+  <a href="https://wa.me/6281298765432?text=Halo%20Admin%20PijatIn,%20saya%20mau%20pesan%20layanan%20pijat" target="_blank" class="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center text-3xl shadow-2xl hover:scale-110 active:scale-95 transition-all group" aria-label="Chat WhatsApp">
+    <i class="fa-brands fa-whatsapp"></i>
+    <!-- Tooltip -->
+    <span class="absolute right-16 bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden sm:block">
+      Chat & Pesan Cepat
+    </span>
+  </a>
+
+  <!-- Script -->
+  <script src="./script.js"></script>
+</body>
+</html>

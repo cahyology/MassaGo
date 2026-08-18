@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">PijatIn Mitra</string>
+    <string name="therapist_title">Mitra Terapis Home Massage</string>
+    <string name="status_online">Siap Menerima Order</string>
+    <string name="status_offline">Sedang Istirahat (Offline)</string>
+    <string name="status_busy">Sedang Melayani Klien</string>
+    <string name="accept_order">Terima Pesanan</string>
+    <string name="decline_order">Tolak</string>
+    <string name="on_the_way">Menuju Lokasi Klien</string>
+    <string name="arrived">Tiba di Lokasi</string>
+    <string name="start_prep">Mulai Persiapan &amp; Ceklis</string>
+    <string name="start_massage">Mulai Sesi Pemijatan</string>
+    <string name="finish_massage">Selesaikan Sesi</string>
+    <string name="payment_collected">Konfirmasi Pembayaran</string>
+</resources>

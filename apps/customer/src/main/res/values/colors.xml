@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary_emerald">#0D9488</color>
+    <color name="primary_dark">#115E59</color>
+    <color name="accent_amber">#F59E0B</color>
+    <color name="background_cream">#FBF9F5</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="text_primary">#1E293B</color>
+    <color name="splash_emerald">#059669</color>
+    <color name="text_secondary">#64748B</color>
+</resources>

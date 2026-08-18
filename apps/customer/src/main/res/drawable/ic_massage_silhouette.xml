@@ -1,0 +1,33 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Therapist Head -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 32,24 C 35.31,24 38,21.31 38,18 C 38,14.69 35.31,12 32,12 C 28.69,12 26,14.69 26,18 C 26,21.31 28.69,24 32,24 Z" />
+    <!-- Therapist Torso and Caring Arms extending towards Client -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 23,46 C 23,34 27,27 34,27 C 38,27 43,30 46,34 L 54,42 C 55.5,43.5 55,45.5 53,46 C 50.5,46.5 48,45 46,43 L 42,39 L 42,50 C 42,52 40,53.5 38,53.5 L 26,53.5 C 24.3,53.5 23,52.2 23,50 Z" />
+    <!-- Client Head on pillow/cushion -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 76,50 C 78.76,50 81,47.76 81,45 C 81,42.24 78.76,40 76,40 C 73.24,40 71,42.24 71,45 C 71,47.76 73.24,50 76,50 Z" />
+    <!-- Client Relaxed Body on Massage Bed -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 44,48 C 48,46 54,46 60,47 C 65,47.8 70,49 74,51 C 75,51.5 75,53.5 73.8,54 C 68,56.5 60,57 52,57 C 46,57 41,55.5 38,54 C 37,53.5 37.5,51.5 39,50.8 C 40.5,50 42,49 44,48 Z" />
+    <!-- Modern Minimalist Massage Bed Surface -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 18,59 C 18,57.5 19.5,56.5 21,56.5 L 83,56.5 C 84.5,56.5 86,57.5 86,59 C 86,60.5 84.5,61.5 83,61.5 L 21,61.5 C 19.5,61.5 18,60.5 18,59 Z" />
+    <!-- Bed Legs (Minimalist & Sleek) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 26,61.5 L 24,78 C 23.8,79.5 25,80.5 26.5,80.5 C 27.8,80.5 28.8,79.5 29,78 L 31,61.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 75,61.5 L 77,78 C 77.2,79.5 78.4,80.5 79.9,80.5 C 81.4,80.5 82.5,79.5 82.3,78 L 80.3,61.5 Z" />
+</vector>

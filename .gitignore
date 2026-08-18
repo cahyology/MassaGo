@@ -1,0 +1,36 @@
+# Gradle & Android
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+*/build
+*/*/build
+captures
+.externalNativeBuild
+.cxx
+*.apk
+!/apk/*.apk
+!/apps/admin/public/apk/*.apk
+
+# Node & Next.js
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temp and logs
+*.log
+.temp/
+.cache/

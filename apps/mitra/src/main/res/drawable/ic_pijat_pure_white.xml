@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Clean Wellness & Massage Care Icon in Pure White -->
+    <!-- Person Head -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,18 A8,8 0 1,0 50,34 A8,8 0 1,0 50,18 Z" />
+    <!-- Relaxed Body / Massage Table silhouette -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,68 C24,65 26,62 30,62 L70,62 C74,62 76,65 76,68 C76,71 74,74 70,74 L30,74 C26,74 24,71 24,68 Z" />
+    <!-- Healing Hands / Dynamic Care Waves above -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,46 C32,41 38,36 50,36 C62,36 68,41 68,46 C68,52 60,56 50,56 C40,56 32,52 32,46 Z" />
+    <!-- Massage Table Legs / Base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,74 L27,88 C26.5,90 28,92 30,92 C32,92 33,90 33.5,88 L35.5,74 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,74 L72.5,88 C73,90 75,92 77,92 C79,92 80.5,90 80,88 L77,74 Z" />
+</vector>
