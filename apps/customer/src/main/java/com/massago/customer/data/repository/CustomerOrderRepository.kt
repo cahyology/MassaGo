@@ -560,6 +560,26 @@ class CustomerOrderRepository private constructor(
         _activeOrder.value = null
     }
 
+    fun triggerSosAlert(notes: String = "Panggilan Darurat Pelanggan MassaGo"): Boolean {
+        val current = _activeOrder.value
+        val profile = userRepository.profile.value
+        val loc = userRepository.currentLocation.value
+        coroutineScope.launch(Dispatchers.IO) {
+            SupabaseCustomerClient.instance.sendSosAlert(
+                senderType = "CUSTOMER",
+                senderId = profile.id.ifBlank { profile.phone },
+                senderName = profile.name,
+                senderPhone = profile.phone,
+                orderId = current?.id,
+                latitude = loc.latitude,
+                longitude = loc.longitude,
+                emergencyType = "EMERGENCY_ASSISTANCE",
+                notes = notes
+            )
+        }
+        return true
+    }
+
     companion object {
         val instance: CustomerOrderRepository by lazy { CustomerOrderRepository() }
     }

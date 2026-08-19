@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Chat
@@ -139,6 +143,147 @@ fun OrderTrackingScreen(
         )
     }
 
+    var showSosDialog by remember { mutableStateOf(false) }
+    var sosSentNotice by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    if (showSosDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showSosDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                shadowElevation = 16.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🚨", fontSize = 32.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Pusat Bantuan Darurat (SOS)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = "Gunakan hanya untuk kondisi darurat keselamatan atau ancaman bahaya saat sesi layanan berlangsung.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "Koordinat GPS Live Anda:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                            Text(
+                                text = "${order.location.latitude}, ${order.location.longitude}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = EmeraldDark
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Panggilan Cepat Polisi & Ambulans
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:110"))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            contentPadding = PaddingValues(vertical = 10.dp)
+                        ) {
+                            Text("🚓 Polisi 110", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:118"))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                            contentPadding = PaddingValues(vertical = 10.dp)
+                        ) {
+                            Text("🚑 Ambulans 118", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // WhatsApp Satgas MassaGo
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                val url = "https://wa.me/6281234567890?text=DARURAT%20SOS%20MassaGo%20ID%20Pesanan%20${order.id}"
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFF059669))
+                    ) {
+                        Text("💬 Satgas MassaGo 24/7", color = Color(0xFF059669), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Tombol Pancarkan Sinyal ke Server
+                    Button(
+                        onClick = {
+                            com.massago.customer.data.repository.CustomerOrderRepository.instance.triggerSosAlert("Panggilan Darurat Pelanggan dari Order #${order.id}")
+                            sosSentNotice = true
+                            showSosDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                    ) {
+                        Text("PANCARKAN SINYAL KE SERVER", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -164,7 +309,30 @@ fun OrderTrackingScreen(
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Kembali")
                     }
                 },
-                actions = {},
+                actions = {
+                    Surface(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { showSosDialog = true },
+                        color = Color(0xFFEF4444).copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "🚨", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "SOS",
+                                color = Color(0xFFEF4444),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
@@ -256,6 +424,37 @@ fun OrderTrackingScreen(
                                             color = EmeraldDeep,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
+                                    }
+                                }
+
+                                if (order.status == CustomerOrderStatus.THERAPIST_ARRIVED) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0xFFFEF3C7),
+                                        border = BorderStroke(1.dp, Color(0xFFF59E0B))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "⏱️", fontSize = 20.sp)
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Terapis Sudah Tiba di Lokasi Anda",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = Color(0xFF92400E)
+                                                )
+                                                Text(
+                                                    text = "Mohon bukakan pintu & persiapkan tempat. Sesuai SOP MassaGo, batas waktu tunggu kehadiran adalah 15 menit.",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF78350F)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 

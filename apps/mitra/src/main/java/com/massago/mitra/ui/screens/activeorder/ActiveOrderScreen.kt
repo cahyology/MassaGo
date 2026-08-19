@@ -96,8 +96,132 @@ fun ActiveOrderScreen(
     val context = LocalContext.current
     val activeOrder by viewModel.activeOrder.collectAsState()
     val unreadChatCount by ChatRepository.instance.unreadCount.collectAsState()
+    var showMitraSosDialog by remember { mutableStateOf(false) }
+    var graceSecondsRemaining by remember { mutableIntStateOf(900) } // 15 Menit
 
     val currentOrder = activeOrder
+
+    androidx.compose.runtime.LaunchedEffect(currentOrder?.status) {
+        if (currentOrder?.status == OrderStatus.ARRIVED_AT_LOCATION) {
+            while (graceSecondsRemaining > 0) {
+                kotlinx.coroutines.delay(1000)
+                graceSecondsRemaining--
+            }
+        }
+    }
+
+    if (showMitraSosDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showMitraSosDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                shadowElevation = 16.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🚨", fontSize = 32.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Pusat Keselamatan & SOS Mitra",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Text(
+                        text = "Gunakan tombol darurat jika Anda menemui ancaman kekerasan, pelecehan, atau kondisi medis darurat di lokasi klien.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Polisi & Ambulans
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:110"))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B))
+                        ) {
+                            Text("🚓 Polisi 110", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:118"))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                        ) {
+                            Text("🚑 Ambulans 118", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // WhatsApp Satgas MassaGo
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                val url = "https://wa.me/6281234567890?text=DARURAT%20SOS%20TERAPIS%20MassaGo%20ID%20Pesanan%20${currentOrder?.id}"
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF059669))
+                    ) {
+                        Text("💬 Satgas MassaGo 24/7", color = Color(0xFF059669), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Kirim Signal SOS ke Server
+                    Button(
+                        onClick = {
+                            com.massago.mitra.data.repository.OrderRepository.instance.triggerSosAlert("Panggilan Darurat Terapis dari Order #${currentOrder?.id}")
+                            showMitraSosDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                    ) {
+                        Text("PANCARKAN SINYAL KE SERVER", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
 
     if (currentOrder == null) {
         Box(
@@ -166,7 +290,7 @@ fun ActiveOrderScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = onSosClick,
+                        onClick = { showMitraSosDialog = true },
                         modifier = Modifier
                             .padding(end = 8.dp)
                             .size(36.dp)
@@ -407,6 +531,69 @@ fun ActiveOrderScreen(
                                     )
                                 }
                             } else if (currentOrder.status == OrderStatus.ARRIVED_AT_LOCATION) {
+                                val minutes = graceSecondsRemaining / 60
+                                val seconds = graceSecondsRemaining % 60
+                                val timeFormatted = String.format(Locale.US, "%02d:%02d", minutes, seconds)
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (graceSecondsRemaining > 0) Color(0xFFFEF3C7) else Color(0xFFFEE2E2),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (graceSecondsRemaining > 0) Color(0xFFF59E0B) else Color(0xFFEF4444)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(CircleShape)
+                                                .background(if (graceSecondsRemaining > 0) Color(0xFFFDE68A) else Color(0xFFFECACA)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (graceSecondsRemaining > 0) "⏱️" else "⚠️",
+                                                fontSize = 20.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Batas Waktu Tunggu SOP",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = if (graceSecondsRemaining > 0) Color(0xFF92400E) else Color(0xFF991B1B)
+                                                )
+                                                Text(
+                                                    text = timeFormatted,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontSize = 14.sp,
+                                                    color = if (graceSecondsRemaining > 0) Color(0xFFB45309) else Color(0xFFDC2626)
+                                                )
+                                            }
+                                            Text(
+                                                text = if (graceSecondsRemaining > 0)
+                                                    "Hubungi klien via chat/telepon. Waktu toleransi kehadiran terapis adalah 15 menit."
+                                                else
+                                                    "Waktu tunggu 15 menit telah habis. Anda berhak membatalkan order dengan kompensasi jika klien tidak merespon.",
+                                                fontSize = 11.sp,
+                                                color = if (graceSecondsRemaining > 0) Color(0xFF78350F) else Color(0xFF7F1D1D)
+                                            )
+                                        }
+                                    }
+                                }
+
                                 Button(
                                     onClick = { viewModel.startSanitation() },
                                     modifier = Modifier

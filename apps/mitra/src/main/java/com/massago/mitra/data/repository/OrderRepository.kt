@@ -217,11 +217,34 @@ class OrderRepository private constructor(
                 val finalLat = custLat ?: -6.2088
                 val finalLng = custLng ?: 106.8456
 
+                val therapistLoc = therapistRepository.therapistProfile.value
+                val orderGenderPref = (orderMap["gender_preference"] as? String) ?: "Bebas"
+                val myGender = therapistLoc.gender.trim()
+                val myPreferredClient = therapistLoc.preferredClientGender.trim()
+
+                // 1. Smart Gender Matching Filter
+                if (orderGenderPref.contains("Wanita", ignoreCase = true) && !myGender.equals("Wanita", ignoreCase = true)) {
+                    return@withContext
+                }
+                if (orderGenderPref.contains("Pria", ignoreCase = true) && !myGender.equals("Pria", ignoreCase = true)) {
+                    return@withContext
+                }
+                if (myPreferredClient.contains("Wanita", ignoreCase = true) && orderGenderPref.contains("Pria", ignoreCase = true)) {
+                    return@withContext
+                }
+                if (myPreferredClient.contains("Pria", ignoreCase = true) && orderGenderPref.contains("Wanita", ignoreCase = true)) {
+                    return@withContext
+                }
+
+                // 2. Minimum Deposit Balance Check
+                if (therapistLoc.depositBalance < 0) {
+                    return@withContext
+                }
+
                 val matchedService = PredefinedServices.ALL_SERVICES.find {
                     it.name.contains(srvName, ignoreCase = true)
                 } ?: PredefinedServices.ALL_SERVICES[0]
 
-                val therapistLoc = therapistRepository.therapistProfile.value
                 val distKm = calculateDistanceKm(therapistLoc.latitude, therapistLoc.longitude, finalLat, finalLng)
 
                 // Radius Filter: If order is outside configured radius, ignore it
@@ -509,6 +532,25 @@ class OrderRepository private constructor(
                 e.printStackTrace()
             }
         }
+    }
+
+    fun triggerSosAlert(notes: String = "Panggilan Darurat Mitra Terapis"): Boolean {
+        val current = _activeOrder.value
+        val profile = therapistRepository.therapistProfile.value
+        coroutineScope.launch(Dispatchers.IO) {
+            SupabaseClient.instance.sendSosAlert(
+                senderType = "THERAPIST",
+                senderId = profile.id,
+                senderName = profile.name,
+                senderPhone = profile.phone,
+                orderId = current?.id,
+                latitude = profile.latitude,
+                longitude = profile.longitude,
+                emergencyType = "EMERGENCY_ASSISTANCE",
+                notes = notes
+            )
+        }
+        return true
     }
 
     fun finishOrderAndReturnHome() {

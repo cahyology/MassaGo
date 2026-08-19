@@ -126,11 +126,15 @@ CREATE TABLE IF NOT EXISTS reviews (
 -- 8. Tabel SOS Emergency Logs
 CREATE TABLE IF NOT EXISTS sos_emergency_logs (
     id SERIAL PRIMARY KEY,
-    therapist_id TEXT NOT NULL,
+    sender_type VARCHAR(20) DEFAULT 'THERAPIST', -- 'THERAPIST' atau 'CUSTOMER'
+    sender_id TEXT NOT NULL,
+    sender_name VARCHAR(100),
+    sender_phone VARCHAR(30),
     order_id VARCHAR(50),
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
-    status VARCHAR(30) DEFAULT 'ACTIVE_EMERGENCY',
+    emergency_type VARCHAR(50) DEFAULT 'EMERGENCY_ASSISTANCE',
+    status VARCHAR(30) DEFAULT 'ACTIVE_EMERGENCY', -- 'ACTIVE_EMERGENCY', 'INVESTIGATING', 'RESOLVED', 'FALSE_ALARM'
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

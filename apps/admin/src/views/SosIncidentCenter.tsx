@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ShieldAlert,
@@ -15,15 +13,69 @@ import {
 } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 import { SosAlert } from '../types';
+import { supabase } from '../lib/supabase';
 
 export const SosIncidentCenter: React.FC = () => {
-  // Real live alerts list (starts empty when no emergency is active)
   const [alerts, setAlerts] = useState<SosAlert[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleResolveAlert = (id: string) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'RESOLVED' as const } : a))
-    );
+  const fetchAlerts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sos_emergency_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (data && !error) {
+        const mapped: SosAlert[] = data.map((item: any) => ({
+          id: item.id?.toString() || `SOS-${Math.random()}`,
+          sender_type: item.sender_type === 'CUSTOMER' ? 'CUSTOMER' : 'THERAPIST',
+          sender_id: item.sender_id || item.therapist_id || 'ID-UNKNOWN',
+          sender_name: item.sender_name || (item.sender_type === 'CUSTOMER' ? 'Pelanggan MassaGo' : 'Mitra Terapis'),
+          sender_phone: item.sender_phone || '+6281234567890',
+          latitude: Number(item.latitude) || -6.2088,
+          longitude: Number(item.longitude) || 106.8456,
+          timestamp: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+          status: (item.status === 'RESOLVED' ? 'RESOLVED' : item.status === 'INVESTIGATING' ? 'INVESTIGATING' : 'ACTIVE') as any,
+          order_id: item.order_id || undefined,
+          notes: item.notes || undefined
+        }));
+        setAlerts(mapped);
+      }
+    } catch (e) {
+      console.error('Failed to fetch SOS logs:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlerts();
+
+    const channel = supabase
+      .channel('sos_logs_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_emergency_logs' }, () => {
+        fetchAlerts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleResolveAlert = async (id: string) => {
+    try {
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: 'RESOLVED' as const } : a))
+      );
+      await supabase
+        .from('sos_emergency_logs')
+        .update({ status: 'RESOLVED' })
+        .eq('id', id);
+    } catch (e) {
+      console.error('Failed to update SOS log status:', e);
+    }
   };
 
   const activeAlerts = alerts.filter((a) => a.status === 'ACTIVE' || a.status === 'INVESTIGATING');

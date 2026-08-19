@@ -76,21 +76,25 @@ export default function AdminPage() {
     });
   };
 
+  const [activeSosCount, setActiveSosCount] = useState<number>(0);
+
   const loadData = async () => {
     setIsRefreshing(true);
     try {
-      const [tData, oData, cData, sData, vData] = await Promise.all([
+      const [tData, oData, cData, sData, vData, sosRes] = await Promise.all([
         getTherapists(),
         getOrders(),
         getCustomers(),
         getServicePackages(),
         getPromoVouchers(),
+        supabase.from('sos_emergency_logs').select('id', { count: 'exact' }).neq('status', 'RESOLVED')
       ]);
       setTherapists(tData);
       setOrders(oData);
       setCustomers(cData);
       setServices(sData);
       setVouchers(vData);
+      setActiveSosCount(sosRes.count || 0);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -108,14 +112,14 @@ export default function AdminPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         () => {
-          getOrders().then(setOrders);
+          loadData();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'therapists' },
         () => {
-          getTherapists().then(setTherapists);
+          loadData();
         }
       )
       .on(
@@ -139,10 +143,8 @@ export default function AdminPage() {
     );
   };
 
-  const handleUpdateOrder = (updated: Order) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === updated.id ? updated : o))
-    );
+  const handleUpdateOrders = (newOrders: Order[]) => {
+    setOrders(newOrders);
   };
 
   const handleUpdateServices = (newServices: ServicePackage[]) => {
@@ -162,7 +164,7 @@ export default function AdminPage() {
         onlineMitraCount={therapists.filter((t) => t.is_online).length}
         activeOrdersCount={orders.filter((o) => !['COMPLETED_PAYMENT', 'REVIEW_SUBMITTED', 'CANCELLED'].includes(o.status)).length}
         pendingKycCount={therapists.filter((t) => !t.is_active).length}
-        activeSosCount={0}
+        activeSosCount={activeSosCount}
         customersCount={customers.length}
       />
 
@@ -175,7 +177,7 @@ export default function AdminPage() {
           onToggleTheme={toggleDarkMode}
           onRefresh={loadData}
           isRefreshing={isRefreshing}
-          activeSosCount={0}
+          activeSosCount={activeSosCount}
           onSosClick={() => setActiveTab('sos')}
         />
 

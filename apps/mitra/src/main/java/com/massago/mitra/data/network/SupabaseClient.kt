@@ -495,6 +495,45 @@ class SupabaseClient(
             null
         }
     }
+
+    /**
+     * Submit SOS Emergency Alert to Supabase sos_emergency_logs
+     */
+    suspend fun sendSosAlert(
+        senderType: String,
+        senderId: String,
+        senderName: String,
+        senderPhone: String,
+        orderId: String?,
+        latitude: Double?,
+        longitude: Double?,
+        emergencyType: String = "EMERGENCY_ASSISTANCE",
+        notes: String = "Panggilan Darurat Terapis MassaGo"
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val payload = JsonObject().apply {
+                addProperty("sender_type", senderType)
+                addProperty("sender_id", senderId)
+                addProperty("sender_name", senderName)
+                addProperty("sender_phone", senderPhone)
+                if (orderId != null) addProperty("order_id", orderId)
+                if (latitude != null) addProperty("latitude", latitude)
+                if (longitude != null) addProperty("longitude", longitude)
+                addProperty("emergency_type", emergencyType)
+                addProperty("status", "ACTIVE_EMERGENCY")
+                addProperty("notes", notes)
+            }
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/sos_emergency_logs")
+                .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
+                .build()
+            val response = client.newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }
 
 
