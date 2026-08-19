@@ -69,6 +69,39 @@ export function cleanAddressText(rawAddress?: string): { address: string; landma
   return { address: clean || 'Yogyakarta', landmark };
 }
 
+// Utility to dynamically compute active duty status based on active ongoing orders
+export function computeTherapistEffectiveStatus(
+  therapist?: Therapist | null,
+  ordersList?: Order[]
+): 'ONLINE' | 'ON_DUTY_BUSY' | 'OFFLINE' {
+  if (!therapist) return 'OFFLINE';
+  const orders = ordersList || [];
+
+  const hasActiveOrder = orders.some((o) => {
+    const isMatched =
+      o.therapist_id === therapist.id ||
+      (therapist.phone && o.therapist_id && o.therapist_id.includes(therapist.phone)) ||
+      (therapist.id && o.therapist_id && o.therapist_id.includes(therapist.id));
+    const isActiveStatus = [
+      'ACCEPTED',
+      'ACCEPTED_ON_THE_WAY',
+      'ARRIVED',
+      'ARRIVED_AT_LOCATION',
+      'IN_SERVICE',
+      'TREATMENT_IN_PROGRESS',
+    ].includes(o.status);
+    return isMatched && isActiveStatus;
+  });
+
+  if (hasActiveOrder || therapist.duty_status === 'ON_DUTY_BUSY') {
+    return 'ON_DUTY_BUSY';
+  }
+  if (therapist.duty_status === 'ONLINE' || therapist.is_online) {
+    return 'ONLINE';
+  }
+  return 'OFFLINE';
+}
+
 // Dynamic Leaflet Map Component with inner Leaflet imports
 const MapInner = dynamic(
   async () => {
