@@ -128,46 +128,48 @@ fun LocationPinPickerDialog(
             withContext(Dispatchers.IO) {
                 try {
                     val geocoder = Geocoder(context, Locale("id", "ID"))
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        geocoder.getFromLocation(target.latitude, target.longitude, 1) { addresses ->
-                            val addr = addresses.firstOrNull()
-                            if (addr != null) {
-                                val full = addr.getAddressLine(0) ?: "${addr.thoroughfare ?: ""}, ${addr.subLocality ?: ""}, ${addr.locality ?: ""}"
-                                val placeName = when {
-                                    !addr.featureName.isNullOrBlank() && addr.featureName != addr.thoroughfare && !addr.featureName.matches("^\\d+$".toRegex()) -> addr.featureName
-                                    !addr.thoroughfare.isNullOrBlank() -> "${addr.thoroughfare} ${addr.subThoroughfare ?: ""}".trim()
-                                    !addr.subLocality.isNullOrBlank() -> addr.subLocality
-                                    !addr.locality.isNullOrBlank() -> addr.locality
-                                    else -> "Titik Pilihan Peta"
-                                }
-                                locationTitle = placeName
-                                locationAddress = full
-                                if (locationNote.isBlank() && (!addr.thoroughfare.isNullOrBlank() || !addr.featureName.isNullOrBlank())) {
-                                    locationNote = "Patokan: $placeName"
+                    val plusCodeRegex = Regex("^[A-Z0-9]{2,8}\\+[A-Z0-9]{2,4}(?:\\s+[A-Za-z]+)?(?:,\\s*)?", RegexOption.IGNORE_CASE)
+
+                    val handleAddress: (android.location.Address?) -> Unit = { addr ->
+                        if (addr != null) {
+                            val rawFull = addr.getAddressLine(0) ?: "${addr.thoroughfare ?: ""}, ${addr.subLocality ?: ""}, ${addr.locality ?: ""}"
+                            var cleanFull = rawFull.replace(plusCodeRegex, "").trim()
+                            if (cleanFull.startsWith(",")) cleanFull = cleanFull.substring(1).trim()
+
+                            val cleanFeature = addr.featureName?.takeIf { !it.contains("+") && !it.matches(Regex("^\\d+$")) }
+                            val cleanThoroughfare = addr.thoroughfare?.takeIf { !it.contains("+") }
+                            val cleanSubLoc = addr.subLocality?.takeIf { !it.contains("+") }
+                            val cleanLoc = addr.locality?.takeIf { !it.contains("+") }
+                            val cleanSubAdmin = addr.subAdminArea?.takeIf { !it.contains("+") }
+
+                            val placeName = when {
+                                cleanFeature != null && cleanFeature != cleanThoroughfare -> cleanFeature
+                                cleanThoroughfare != null && cleanSubLoc != null -> "${addr.thoroughfare}, $cleanSubLoc"
+                                cleanThoroughfare != null -> "${addr.thoroughfare} ${addr.subThoroughfare ?: ""}".trim()
+                                cleanSubLoc != null && cleanLoc != null -> "$cleanSubLoc, $cleanLoc"
+                                cleanSubLoc != null -> cleanSubLoc
+                                cleanLoc != null -> cleanLoc
+                                else -> {
+                                    val parts = cleanFull.split(",").map { it.trim() }.filter { it.isNotEmpty() && !it.contains("+") }
+                                    if (parts.isNotEmpty()) parts.take(2).joinToString(", ") else "Titik Pilihan Peta"
                                 }
                             }
-                            isGeocodingLoading = false
+
+                            locationTitle = placeName
+                            locationAddress = cleanFull.ifBlank { rawFull }
+                            locationNote = "Patokan: $placeName"
+                        }
+                        isGeocodingLoading = false
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        geocoder.getFromLocation(target.latitude, target.longitude, 1) { addresses ->
+                            handleAddress(addresses.firstOrNull())
                         }
                     } else {
                         @Suppress("DEPRECATION")
                         val addresses = geocoder.getFromLocation(target.latitude, target.longitude, 1)
-                        val addr = addresses?.firstOrNull()
-                        if (addr != null) {
-                            val full = addr.getAddressLine(0) ?: "${addr.thoroughfare ?: ""}, ${addr.subLocality ?: ""}, ${addr.locality ?: ""}"
-                            val placeName = when {
-                                !addr.featureName.isNullOrBlank() && addr.featureName != addr.thoroughfare && !addr.featureName.matches("^\\d+$".toRegex()) -> addr.featureName
-                                !addr.thoroughfare.isNullOrBlank() -> "${addr.thoroughfare} ${addr.subThoroughfare ?: ""}".trim()
-                                !addr.subLocality.isNullOrBlank() -> addr.subLocality
-                                !addr.locality.isNullOrBlank() -> addr.locality
-                                else -> "Titik Pilihan Peta"
-                            }
-                            locationTitle = placeName
-                            locationAddress = full
-                            if (locationNote.isBlank() && (!addr.thoroughfare.isNullOrBlank() || !addr.featureName.isNullOrBlank())) {
-                                locationNote = "Patokan: $placeName"
-                            }
-                        }
-                        isGeocodingLoading = false
+                        handleAddress(addresses?.firstOrNull())
                     }
                 } catch (e: Exception) {
                     locationAddress = "Koordinat: %.5f, %.5f".format(target.latitude, target.longitude)

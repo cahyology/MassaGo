@@ -167,12 +167,13 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             isOnline = therapistProfile.dutyStatus == DutyStatus.ONLINE,
             activeOrder = activeOrder,
-            radiusKm = therapistProfile.maxRadiusKm
+            radiusKm = therapistProfile.maxRadiusKm,
+            mitraLocation = com.google.android.gms.maps.model.LatLng(therapistProfile.latitude, therapistProfile.longitude)
         )
 
         var showKycWarningDialog by remember { mutableStateOf(false) }
 
-        // 2. Top Floating Controls: Header & Online/Offline Switch
+        // 2. Top Floating Controls: Header & Minimal Combined Duty/Auto-Accept Pill Bar
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -190,32 +191,32 @@ fun HomeScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = Color(0xFFFEF3C7),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = null,
                             tint = Color(0xFFD97706),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
                                 text = "Pendaftaran Dalam Peninjauan Admin",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 color = Color(0xFF92400E)
                             )
                             Text(
-                                text = "Status 'Online' akan aktif otomatis setelah KYC disetujui admin.",
-                                fontSize = 10.sp,
+                                text = "Status 'Online' akan aktif setelah KYC disetujui.",
+                                fontSize = 9.5.sp,
                                 color = Color(0xFFB45309)
                             )
                         }
@@ -223,6 +224,7 @@ fun HomeScreen(
                 }
             }
 
+            // Minimalist Combined Duty & Auto-Accept Floating Bar
             StatusToggleSwitch(
                 currentStatus = therapistProfile.dutyStatus,
                 onStatusChange = { newStatus ->
@@ -236,70 +238,12 @@ fun HomeScreen(
                         com.massago.mitra.service.MitraLocationService.stop(context)
                     }
                     viewModel.setDutyStatus(newStatus)
+                },
+                autoAcceptOrders = therapistProfile.autoAcceptOrders,
+                onAutoAcceptChange = { isChecked ->
+                    viewModel.toggleAutoAccept(isChecked)
                 }
             )
-
-            // Quick Auto-Accept Order Switch Card
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 3.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                shadowElevation = 0.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (therapistProfile.autoAcceptOrders) EmeraldPrimary.copy(alpha = 0.15f) else Color(0xFFF1F5F9)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ElectricBolt,
-                                contentDescription = null,
-                                tint = if (therapistProfile.autoAcceptOrders) EmeraldPrimary else TextSecondary,
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Terima Order Otomatis",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = if (therapistProfile.autoAcceptOrders) "Orderan masuk langsung diterima otomatis" else "Konfirmasi manual saat order masuk",
-                                fontSize = 9.5.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                    Switch(
-                        checked = therapistProfile.autoAcceptOrders,
-                        onCheckedChange = { isChecked ->
-                            viewModel.toggleAutoAccept(isChecked)
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = EmeraldPrimary,
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFFCBD5E1)
-                        )
-                    )
-                }
-            }
         }
 
         if (showKycWarningDialog) {

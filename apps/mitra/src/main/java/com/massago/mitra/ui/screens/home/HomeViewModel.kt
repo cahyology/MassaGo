@@ -20,7 +20,7 @@ class HomeViewModel(
 ) : ViewModel() {
 
     val therapistProfile: StateFlow<TherapistProfile> = therapistRepository.therapistProfile
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TherapistProfile())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, therapistRepository.therapistProfile.value)
 
     val activeOrder: StateFlow<Order?> = orderRepository.activeOrder
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

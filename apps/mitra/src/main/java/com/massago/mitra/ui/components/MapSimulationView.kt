@@ -78,13 +78,13 @@ fun MapSimulationView(
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    var lockedMitraGps by remember { mutableStateOf(mitraLocation) }
+    var lockedMitraGps by remember(mitraLocation) { mutableStateOf(mitraLocation) }
 
     val customerLocation = remember(activeOrder) {
         if (activeOrder != null && activeOrder.client.latitude != 0.0) {
             LatLng(activeOrder.client.latitude, activeOrder.client.longitude)
         } else {
-            LatLng(-7.7956, 110.3695)
+            mitraLocation
         }
     }
 
@@ -121,15 +121,21 @@ fun MapSimulationView(
     // Auto-center and lock on device real GPS on start
     LaunchedEffect(Unit) {
         try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) {
-                    val userGps = LatLng(loc.latitude, loc.longitude)
-                    lockedMitraGps = userGps
+            fusedLocationClient.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        val userGps = LatLng(loc.latitude, loc.longitude)
+                        lockedMitraGps = userGps
+                    } else {
+                        fusedLocationClient.lastLocation.addOnSuccessListener { cached ->
+                            if (cached != null) {
+                                val userGps = LatLng(cached.latitude, cached.longitude)
+                                lockedMitraGps = userGps
+                            }
+                        }
+                    }
                 }
-            }
-        } catch (e: Exception) {
-            // fallback
-        }
+        } catch (_: Exception) {}
     }
 
     var hasInitiallyFramedOrder by remember(activeOrder?.id) { mutableStateOf(false) }
@@ -148,7 +154,6 @@ fun MapSimulationView(
             }
         } else if (activeOrder == null) {
             hasInitiallyFramedOrder = false
-            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(effectiveMitraGps, 15.5f))
         }
     }
 

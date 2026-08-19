@@ -270,27 +270,11 @@ fun ProfileScreen(
             item {
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "Preferensi & Penugasan Otomatis",
+                    text = "Preferensi & Tampilan",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 18.dp)
-                )
-            }
-
-            // Auto Accept Toggle
-            item {
-                SettingCardItem(
-                    title = "Terima Order Otomatis (Auto-Accept)",
-                    subtitle = "Order instan langsung masuk tanpa perlu konfirmasi manual",
-                    icon = Icons.Default.Bolt,
-                    action = {
-                        Switch(
-                            checked = profile.autoAcceptOrders,
-                            onCheckedChange = { repository.toggleAutoAccept(it) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = EmeraldPrimary)
-                        )
-                    }
                 )
             }
 
