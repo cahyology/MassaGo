@@ -75,6 +75,11 @@ export const PaymentSettingsManager: React.FC = () => {
   const [commissionPercent, setCommissionPercent] = useState('20');
   const [minDepositBalance, setMinDepositBalance] = useState('50000');
 
+  // Repeat Order Bonus for Favorite Therapists
+  const [repeatBonusActive, setRepeatBonusActive] = useState(true);
+  const [repeatBonusType, setRepeatBonusType] = useState<'FIXED' | 'PERCENTAGE'>('FIXED');
+  const [repeatBonusValue, setRepeatBonusValue] = useState('15000');
+
   // Support
   const [adminWa, setAdminWa] = useState('');
   const [supportEmail, setSupportEmail] = useState('');
@@ -115,6 +120,11 @@ export const PaymentSettingsManager: React.FC = () => {
       setQrisNmid(st.qris_nmid || 'ID1020030040050');
       setCommissionPercent(st.platform_commission_percent || '20');
       setMinDepositBalance(st.min_deposit_balance || '50000');
+
+      // Repeat Order Loyalty Bonus
+      setRepeatBonusActive(st.repeat_order_bonus_active !== 'false');
+      setRepeatBonusType((st.repeat_order_bonus_type as any) === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED');
+      setRepeatBonusValue(st.repeat_order_bonus_value || '15000');
 
       // Support
       setAdminWa(st.admin_whatsapp || '+6281234567890');
@@ -223,6 +233,9 @@ export const PaymentSettingsManager: React.FC = () => {
         updatePlatformSetting('qris_nmid', qrisNmid.trim(), 'NMID QRIS'),
         updatePlatformSetting('platform_commission_percent', commissionPercent.trim(), 'Persentase Komisi Platform'),
         updatePlatformSetting('min_deposit_balance', minDepositBalance.trim(), 'Batas Minimal Saldo Deposit'),
+        updatePlatformSetting('repeat_order_bonus_active', repeatBonusActive ? 'true' : 'false', 'Status Bonus Repeat Order'),
+        updatePlatformSetting('repeat_order_bonus_type', repeatBonusType, 'Tipe Bonus Repeat Order'),
+        updatePlatformSetting('repeat_order_bonus_value', repeatBonusValue.trim(), 'Nilai Bonus Repeat Order'),
         updatePlatformSetting('admin_whatsapp', adminWa.trim(), 'WhatsApp CS Admin'),
         updatePlatformSetting('support_email', supportEmail.trim(), 'Email Support Platform'),
       ]);
@@ -613,6 +626,83 @@ export const PaymentSettingsManager: React.FC = () => {
                 />
                 <p className="text-[11px] text-slate-500">
                   Mitra harus memiliki saldo deposit minimal ini untuk dapat mengaktifkan status Online.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Repeat Order Bonus Card */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                Bonus Repeat Order (Pelanggan Langganan)
+              </h3>
+              <button
+                onClick={() => setRepeatBonusActive(!repeatBonusActive)}
+                className={`p-1 rounded-full transition ${
+                  repeatBonusActive ? 'text-amber-500' : 'text-slate-400'
+                }`}
+                title={repeatBonusActive ? 'Bonus Aktif' : 'Bonus Non-Aktif'}
+              >
+                {repeatBonusActive ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Insentif tambahan yang diberikan kepada mitra terapis ketika pelanggan melakukan pemesanan ulang secara langsung (Terapis Favorit).
+            </p>
+
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Tipe Perhitungan Bonus
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRepeatBonusType('FIXED')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                      repeatBonusType === 'FIXED'
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/40'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    Nominal Tetap (Rp)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRepeatBonusType('PERCENTAGE')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                      repeatBonusType === 'PERCENTAGE'
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/40'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    Persentase (%)
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {repeatBonusType === 'FIXED' ? 'Nominal Bonus per Order (Rp)' : 'Persentase Bonus dari Tarif (%)'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={repeatBonusValue}
+                    onChange={(e) => setRepeatBonusValue(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    {repeatBonusType === 'FIXED' ? 'IDR' : '%'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {repeatBonusType === 'FIXED'
+                    ? `Setiap order langganan selesai, mitra mendapat tambahan bonus Rp ${Number(repeatBonusValue || 0).toLocaleString('id-ID')}.`
+                    : `Setiap order langganan selesai, mitra mendapat tambahan bonus ${repeatBonusValue}% dari harga paket.`}
                 </p>
               </div>
             </div>

@@ -136,7 +136,22 @@ fun OrderTrackingScreen(
     if (order.status == CustomerOrderStatus.TREATMENT_FINISHED_PAYMENT) {
         CustomerRatingDialog(
             order = order,
-            onSubmit = { rating, comment, tags, tip ->
+            onSubmit = { rating, tags, comment, tip, isFavorite ->
+                if (isFavorite && order.assignedTherapist != null) {
+                    val t = order.assignedTherapist!!
+                    com.massago.customer.data.repository.CustomerUserRepository.instance.addFavoriteTherapist(
+                        com.massago.customer.data.repository.FavoriteTherapist(
+                            id = t.id,
+                            name = t.name,
+                            gender = t.gender,
+                            rating = t.rating,
+                            ordersCompleted = t.ordersCompleted,
+                            specialty = t.specialtyBadge,
+                            avatarInitials = t.avatarInitials,
+                            isOnline = true
+                        )
+                    )
+                }
                 viewModel.submitRating(rating, comment, tags, tip)
                 onNavigateBack()
             }
@@ -753,7 +768,22 @@ fun OrderTrackingScreen(
                 CustomerOrderStatus.TREATMENT_FINISHED_PAYMENT, CustomerOrderStatus.ORDER_RATED -> {
                     CustomerRatingView(
                         order = order,
-                        onSubmit = { rating, tags, comment, tip ->
+                        onSubmit = { rating, tags, comment, tip, isFavorite ->
+                            if (isFavorite && order.assignedTherapist != null) {
+                                val t = order.assignedTherapist!!
+                                com.massago.customer.data.repository.CustomerUserRepository.instance.addFavoriteTherapist(
+                                    com.massago.customer.data.repository.FavoriteTherapist(
+                                        id = t.id,
+                                        name = t.name,
+                                        gender = t.gender,
+                                        rating = t.rating,
+                                        ordersCompleted = t.ordersCompleted,
+                                        specialty = t.specialtyBadge,
+                                        avatarInitials = t.avatarInitials,
+                                        isOnline = true
+                                    )
+                                )
+                            }
                             viewModel.submitRating(rating, comment, tags, tip)
                             onNavigateBack()
                         }
@@ -772,13 +802,32 @@ fun OrderTrackingScreen(
 }
 
 @Composable
+fun CustomerRatingDialog(
+    order: com.massago.customer.data.model.CustomerOrder,
+    onSubmit: (rating: Int, tags: List<String>, comment: String, tip: Long, isFavorite: Boolean) -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { /* Must submit or cancel */ },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFFF8FAFC)
+        ) {
+            CustomerRatingView(order = order, onSubmit = onSubmit)
+        }
+    }
+}
+
+@Composable
 fun CustomerRatingView(
     order: com.massago.customer.data.model.CustomerOrder,
-    onSubmit: (rating: Int, tags: List<String>, comment: String, tip: Long) -> Unit
+    onSubmit: (rating: Int, tags: List<String>, comment: String, tip: Long, isFavorite: Boolean) -> Unit
 ) {
     var selectedRating by remember { mutableStateOf(5) }
     var reviewComment by remember { mutableStateOf("") }
     var selectedTip by remember { mutableStateOf(0L) }
+    var isSaveAsFavorite by remember { mutableStateOf(true) }
     val selectedTags = remember { androidx.compose.runtime.mutableStateListOf<String>() }
 
     val availableTags = listOf(
@@ -799,6 +848,7 @@ fun CustomerRatingView(
     )
 
     val tipOptions = listOf(0L, 10000L, 20000L, 50000L)
+    val therapistName = order.assignedTherapist?.name ?: "Mitra Terapis"
 
     Column(
         modifier = Modifier
@@ -834,7 +884,7 @@ fun CustomerRatingView(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Bagikan ulasan Anda bersama ${order.assignedTherapist?.name ?: "Mitra Terapis"}",
+            text = "Bagikan ulasan Anda bersama $therapistName",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
             textAlign = TextAlign.Center
@@ -860,7 +910,7 @@ fun CustomerRatingView(
                     color = Color(0xFF0F172A)
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -886,6 +936,60 @@ fun CustomerRatingView(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = AmberGold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Favorite Bookmark Toggle Card
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = if (isSaveAsFavorite) Color(0xFFFFFBEB) else Color.White,
+            border = BorderStroke(1.5.dp, if (isSaveAsFavorite) AmberGold else Color(0xFFE2E8F0)),
+            shadowElevation = 2.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isSaveAsFavorite = !isSaveAsFavorite }
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(if (isSaveAsFavorite) AmberGold.copy(alpha = 0.2f) else Color(0xFFF1F5F9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = if (isSaveAsFavorite) "❤️" else "🤍", fontSize = 22.sp)
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Puas dengan $therapistName?",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "Simpan sebagai Terapis Favorit untuk kemudahan pesan ulang",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                androidx.compose.material3.Checkbox(
+                    checked = isSaveAsFavorite,
+                    onCheckedChange = { isSaveAsFavorite = it },
+                    colors = androidx.compose.material3.CheckboxDefaults.colors(
+                        checkedColor = AmberGold,
+                        checkmarkColor = Color.White
+                    )
                 )
             }
         }
@@ -1011,7 +1115,7 @@ fun CustomerRatingView(
         // Submit Button
         Button(
             onClick = {
-                onSubmit(selectedRating, selectedTags.toList(), reviewComment, selectedTip)
+                onSubmit(selectedRating, selectedTags.toList(), reviewComment, selectedTip, isSaveAsFavorite)
             },
             colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
             shape = RoundedCornerShape(16.dp),

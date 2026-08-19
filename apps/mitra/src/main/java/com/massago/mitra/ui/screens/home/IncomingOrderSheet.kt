@@ -68,7 +68,8 @@ fun IncomingOrderSheet(
     onDecline: (String) -> Unit
 ) {
     val currencyFormat = NumberFormat.getNumberInstance(Locale("id", "ID"))
-    val formattedEarnings = "Rp " + currencyFormat.format(order.servicePackage.therapistShare + order.travelAllowance)
+    val totalEarnings = order.servicePackage.therapistShare + order.travelAllowance + order.repeatBonusAmount
+    val formattedEarnings = "Rp " + currencyFormat.format(totalEarnings)
     val formattedTotalOrder = "Rp " + currencyFormat.format(order.servicePackage.basePrice + order.travelAllowance)
 
     var showDeclineDialog by remember { mutableStateOf(false) }
@@ -96,6 +97,40 @@ fun IncomingOrderSheet(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Golden VIP Repeat Order Banner
+            if (order.isRepeatOrder) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFFFFBEB),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, AmberGold),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "⭐", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "PESANAN PELANGGAN LANGGANAN!",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                color = AmberGold
+                            )
+                            Text(
+                                text = "Pelanggan secara khusus memilih Anda. Bonus Loyalitas: +Rp ${currencyFormat.format(order.repeatBonusAmount)}!",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF475569)
+                            )
+                        }
+                    }
+                }
+            }
 
             // Header: Countdown Timer Ring & Order Title
             Row(

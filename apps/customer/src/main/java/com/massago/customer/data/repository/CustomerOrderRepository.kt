@@ -367,7 +367,10 @@ class CustomerOrderRepository private constructor(
         pressureLevel: PressureLevel,
         genderPreference: String,
         voucherCode: String?,
-        paymentMethod: CustomerPaymentMethod
+        paymentMethod: CustomerPaymentMethod,
+        preferredTherapistId: String? = null,
+        isRepeatOrder: Boolean = false,
+        scheduledTime: String? = null
     ): CustomerOrder {
         val selectedAroma = CustomerPredefinedServices.AVAILABLE_AROMAS.find { it.id == aromaId }
             ?: CustomerPredefinedServices.AVAILABLE_AROMAS[0]
@@ -397,6 +400,9 @@ class CustomerOrderRepository private constructor(
             discountAmount = discount,
             appliedVoucher = voucher,
             paymentMethod = paymentMethod,
+            preferredTherapistId = preferredTherapistId,
+            isRepeatOrder = isRepeatOrder,
+            scheduledTime = scheduledTime,
             totalSeconds = totalSeconds,
             remainingSeconds = totalSeconds
         )
@@ -439,6 +445,14 @@ class CustomerOrderRepository private constructor(
                     addProperty("address", formattedAddress)
                     addProperty("gender_preference", genderPreference)
                     addProperty("created_at", System.currentTimeMillis())
+
+                    if (!preferredTherapistId.isNullOrBlank()) {
+                        addProperty("preferred_therapist_id", preferredTherapistId)
+                        addProperty("is_repeat_order", true)
+                    }
+                    if (!scheduledTime.isNullOrBlank()) {
+                        addProperty("scheduled_time", scheduledTime)
+                    }
                 }
                 SupabaseCustomerClient.instance.createOrder(orderJson)
             } catch (e: Exception) {

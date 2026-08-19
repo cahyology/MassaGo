@@ -323,6 +323,16 @@ class OrderRepository private constructor(
                 val finalLng = custLng ?: 110.3695
 
                 val therapistLoc = therapistRepository.therapistProfile.value
+                val preferredTherapistId = (orderMap["preferred_therapist_id"] as? String) ?: ""
+                val isRepeatOrder = (orderMap["is_repeat_order"] as? Boolean) == true || preferredTherapistId.isNotBlank()
+
+                // If this order is specifically requested for another therapist, skip it
+                if (preferredTherapistId.isNotBlank() && preferredTherapistId != therapistLoc.id &&
+                    !therapistLoc.id.contains(preferredTherapistId, ignoreCase = true) &&
+                    !preferredTherapistId.contains(therapistLoc.id, ignoreCase = true)) {
+                    return@withContext
+                }
+
                 val orderGenderPref = (orderMap["gender_preference"] as? String) ?: "Bebas"
                 val myGender = therapistLoc.gender.trim()
                 val myPreferredClient = therapistLoc.preferredClientGender.trim()
@@ -352,9 +362,30 @@ class OrderRepository private constructor(
 
                 val distKm = calculateDistanceKm(therapistLoc.latitude, therapistLoc.longitude, finalLat, finalLng)
 
-                // Radius Filter: If order is outside configured radius, ignore it
-                if (distKm > therapistLoc.maxRadiusKm) {
+                // Radius Filter: If order is outside configured radius (and not explicitly requested by VIP repeat customer), ignore it
+                if (distKm > therapistLoc.maxRadiusKm && !isRepeatOrder) {
                     return@withContext
+                }
+
+                // Calculate Repeat Order Loyalty Bonus if active
+                var repeatBonusAmount = 0L
+                if (isRepeatOrder) {
+                    try {
+                        val settings = SupabaseClient.instance.fetchPlatformSettings()
+                        val bonusActive = settings["repeat_order_bonus_active"] != "false"
+                        if (bonusActive) {
+                            val bonusType = settings["repeat_order_bonus_type"] ?: "FIXED"
+                            val bonusValStr = settings["repeat_order_bonus_value"] ?: "15000"
+                            val bonusVal = bonusValStr.toLongOrNull() ?: 15000L
+                            repeatBonusAmount = if (bonusType.equals("PERCENTAGE", ignoreCase = true)) {
+                                (price * (bonusVal / 100.0)).toLong()
+                            } else {
+                                bonusVal
+                            }
+                        }
+                    } catch (_: Exception) {
+                        repeatBonusAmount = 15000L
+                    }
                 }
 
                 val etaMin = (distKm * 3.5).toInt().coerceAtLeast(5)
@@ -384,6 +415,9 @@ class OrderRepository private constructor(
                         therapistCommissionRate = therapistRate
                     ),
                     status = OrderStatus.INCOMING,
+                    isRepeatOrder = isRepeatOrder,
+                    preferredTherapistId = preferredTherapistId.ifBlank { null },
+                    repeatBonusAmount = repeatBonusAmount,
                     totalTreatmentSeconds = duration * 60,
                     remainingTreatmentSeconds = duration * 60
                 )

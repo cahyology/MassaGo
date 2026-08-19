@@ -82,6 +82,8 @@ fun CheckoutScreen(
     focusAreasStr: String,
     pressureStr: String,
     genderPreference: String,
+    preferredTherapistId: String = "",
+    preferredTherapistName: String = "",
     onNavigateBack: () -> Unit,
     onOrderPlaced: () -> Unit,
     viewModel: CheckoutViewModel = viewModel()
@@ -207,7 +209,10 @@ fun CheckoutScreen(
                                 aromaId = selectedAroma.id,
                                 focusAreas = focusAreas,
                                 pressureLevel = pressureLevel,
-                                genderPreference = genderPreference
+                                genderPreference = genderPreference,
+                                preferredTherapistId = preferredTherapistId.ifBlank { null },
+                                isRepeatOrder = preferredTherapistId.isNotBlank(),
+                                scheduledTime = if (isScheduledLater) "SCHEDULED_LATER" else null
                             )
 
                             if (selectedPaymentMethod == CustomerPaymentMethod.QRIS || selectedPaymentMethod == CustomerPaymentMethod.VIRTUAL_ACCOUNT) {
@@ -270,6 +275,69 @@ fun CheckoutScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Preferred / Favorite Therapist Card
+            if (preferredTherapistName.isNotBlank() || preferredTherapistId.isNotBlank()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFFFFFBEB),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, AmberGold),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(AmberGold.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "⭐", fontSize = 24.sp)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Terapis Langganan Terpilih",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AmberGold
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AmberGold
+                                    ) {
+                                        Text(
+                                            text = "VIP RE-ORDER",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = preferredTherapistName.ifBlank { "Terapis Pilihan Anda" },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+                                Text(
+                                    text = "Pesanan akan langsung diprioritaskan ke terapis langganan Anda.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Service Summary Card
             item {
                 Surface(

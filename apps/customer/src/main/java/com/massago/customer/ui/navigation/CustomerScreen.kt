@@ -20,19 +20,23 @@ sealed class CustomerScreen(val route: String, val title: String = "", val icon:
     object Detail : CustomerScreen("detail/{serviceId}") {
         fun createRoute(serviceId: String) = "detail/$serviceId"
     }
-    object Checkout : CustomerScreen("checkout?serviceId={serviceId}&duration={duration}&aromaId={aromaId}&focusAreas={focusAreas}&pressure={pressure}&gender={gender}") {
+    object Checkout : CustomerScreen("checkout?serviceId={serviceId}&duration={duration}&aromaId={aromaId}&focusAreas={focusAreas}&pressure={pressure}&gender={gender}&preferredTherapistId={preferredTherapistId}&preferredTherapistName={preferredTherapistName}") {
         fun createRoute(
             serviceId: String,
-            duration: Int,
-            aromaId: String,
-            focusAreas: String,
-            pressure: String,
-            gender: String
+            duration: Int = 90,
+            aromaId: String = "aroma-olive",
+            focusAreas: String = "Pundak",
+            pressure: String = "MEDIUM",
+            gender: String = "Bebas",
+            preferredTherapistId: String = "",
+            preferredTherapistName: String = ""
         ): String {
             val encFocus = java.net.URLEncoder.encode(focusAreas.ifBlank { "Semua" }, "UTF-8")
             val encGender = java.net.URLEncoder.encode(gender.ifBlank { "Bebas" }, "UTF-8")
             val encAroma = java.net.URLEncoder.encode(aromaId.ifBlank { "aroma-olive" }, "UTF-8")
-            return "checkout?serviceId=$serviceId&duration=$duration&aromaId=$encAroma&focusAreas=$encFocus&pressure=$pressure&gender=$encGender"
+            val encTherapistId = java.net.URLEncoder.encode(preferredTherapistId, "UTF-8")
+            val encTherapistName = java.net.URLEncoder.encode(preferredTherapistName, "UTF-8")
+            return "checkout?serviceId=$serviceId&duration=$duration&aromaId=$encAroma&focusAreas=$encFocus&pressure=$pressure&gender=$encGender&preferredTherapistId=$encTherapistId&preferredTherapistName=$encTherapistName"
         }
     }
     object Tracking : CustomerScreen("tracking", "Tracking")

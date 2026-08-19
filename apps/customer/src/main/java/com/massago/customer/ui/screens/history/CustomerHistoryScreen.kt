@@ -64,7 +64,7 @@ import java.util.Locale
 @Composable
 fun CustomerHistoryScreen(
     onNavigateBack: () -> Unit,
-    onReorder: (String) -> Unit
+    onReorder: (serviceId: String, therapistId: String, therapistName: String) -> Unit
 ) {
     val orderRepository = CustomerOrderRepository.instance
     val orderHistory by orderRepository.orderHistory.collectAsState()
@@ -214,12 +214,18 @@ fun CustomerHistoryScreen(
                                     }
 
                                     Button(
-                                        onClick = { onReorder(order.service.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                        onClick = {
+                                            onReorder(
+                                                order.service.id,
+                                                order.assignedTherapist?.id ?: "",
+                                                order.assignedTherapist?.name ?: ""
+                                            )
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = AmberGold),
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                     ) {
-                                        Text(text = "Pesan Lagi", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text(text = "⭐ Pesan Lagi", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
                                 }
                             }

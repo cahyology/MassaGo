@@ -72,7 +72,10 @@ class CheckoutViewModel(
         aromaId: String,
         focusAreas: List<String>,
         pressureLevel: PressureLevel,
-        genderPreference: String
+        genderPreference: String,
+        preferredTherapistId: String? = null,
+        isRepeatOrder: Boolean = false,
+        scheduledTime: String? = null
     ): CustomerOrder {
         val service = orderRepository.serviceCatalog.value.find { it.id == serviceId }
             ?: CustomerPredefinedServices.SERVICES.find { it.id == serviceId }
@@ -86,7 +89,10 @@ class CheckoutViewModel(
             pressureLevel = pressureLevel,
             genderPreference = genderPreference,
             voucherCode = _selectedVoucher.value?.code,
-            paymentMethod = _selectedPaymentMethod.value
+            paymentMethod = _selectedPaymentMethod.value,
+            preferredTherapistId = preferredTherapistId,
+            isRepeatOrder = isRepeatOrder,
+            scheduledTime = scheduledTime
         )
     }
 }

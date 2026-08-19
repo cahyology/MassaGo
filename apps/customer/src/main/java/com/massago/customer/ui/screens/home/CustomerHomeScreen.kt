@@ -28,6 +28,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -87,6 +90,7 @@ fun CustomerHomeScreen(
     onNavigateToTracking: () -> Unit,
     onNavigateToWallet: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToCheckout: ((serviceId: String, therapistId: String, therapistName: String) -> Unit)? = null,
     viewModel: CustomerHomeViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -95,6 +99,7 @@ fun CustomerHomeScreen(
     val currentLocation by viewModel.currentLocation.collectAsState()
     val activeOrder by viewModel.activeOrder.collectAsState()
     val unreadChatCount by com.massago.customer.data.repository.CustomerChatRepository.instance.unreadCount.collectAsState()
+    val favoriteTherapists by com.massago.customer.data.repository.CustomerUserRepository.instance.favoriteTherapists.collectAsState()
     val vouchers by viewModel.vouchers.collectAsState()
     val services by viewModel.services.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -364,6 +369,133 @@ fun CustomerHomeScreen(
                     vouchers = vouchers,
                     onVoucherClick = { /* Handle voucher click */ }
                 )
+            }
+
+            // Section: Terapis Langganan Anda (Favorite Therapists Slider)
+            if (favoriteTherapists.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⭐ Terapis Langganan Anda",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "${favoriteTherapists.size} Tersimpan",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AmberGold,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(favoriteTherapists) { therapist ->
+                                Surface(
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = Color.White,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                    shadowElevation = 2.dp,
+                                    modifier = Modifier.width(260.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(46.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (therapist.gender == "Wanita") Color(0xFFFCE7F3) else Color(0xFFE0F2FE)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = therapist.avatarInitials,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 16.sp,
+                                                    color = if (therapist.gender == "Wanita") Color(0xFFDB2777) else Color(0xFF0284C7)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(10.dp))
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = therapist.name,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Star,
+                                                        contentDescription = null,
+                                                        tint = AmberGold,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(2.dp))
+                                                    Text(
+                                                        text = "${therapist.rating} (${therapist.ordersCompleted}+ order)",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        fontSize = 11.sp,
+                                                        color = TextSecondary
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Text(
+                                            text = therapist.specialty,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextMuted,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        Button(
+                                            onClick = {
+                                                val targetServiceId = services.firstOrNull()?.id ?: "SRV-TRAD"
+                                                if (onNavigateToCheckout != null) {
+                                                    onNavigateToCheckout(targetServiceId, therapist.id, therapist.name)
+                                                } else {
+                                                    onNavigateToDetail(targetServiceId)
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = AmberGold),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = "⭐ Pesan Lagi",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Category Filter Chips

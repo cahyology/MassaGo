@@ -130,10 +130,19 @@ fun PaymentSettlementView(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     BillRow(
-                        label = "Potongan Komisi Aplikasi (20%)",
+                        label = "Potongan Komisi Aplikasi",
                         amount = "-Rp " + currencyFormat.format(order.platformFee),
                         isDeduction = true
                     )
+
+                    if (order.repeatBonusAmount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BillRow(
+                            label = "⭐ Bonus Repeat Order (Langganan)",
+                            amount = "+Rp " + currencyFormat.format(order.repeatBonusAmount),
+                            isHighlight = true
+                        )
+                    }
 
                     if (selectedTip > 0) {
                         Spacer(modifier = Modifier.height(8.dp))

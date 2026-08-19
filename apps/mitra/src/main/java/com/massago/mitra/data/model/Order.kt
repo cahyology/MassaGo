@@ -61,6 +61,11 @@ data class Order(
     val isOilAromaConfirmed: Boolean = false,
     val isPressurePreferenceChecked: Boolean = false,
     
+    // Repeat / Loyalty Bonus
+    val isRepeatOrder: Boolean = false,
+    val preferredTherapistId: String? = null,
+    val repeatBonusAmount: Long = 0L,
+    
     // Timestamps & Settlement
     val createdAtMillis: Long = System.currentTimeMillis(),
     val acceptedAtMillis: Long? = null,
@@ -70,7 +75,7 @@ data class Order(
 ) {
     val subtotal: Long get() = servicePackage.basePrice
     val platformFee: Long get() = (servicePackage.basePrice * (1.0 - servicePackage.therapistCommissionRate)).toLong()
-    val therapistNetEarnings: Long get() = servicePackage.therapistShare + travelAllowance + tipAmount
+    val therapistNetEarnings: Long get() = servicePackage.therapistShare + travelAllowance + tipAmount + repeatBonusAmount
     val totalCustomerBill: Long get() = subtotal + travelAllowance + tipAmount
     val isPrepComplete: Boolean get() = isHandsSanitized && isMatCoverReplaced && isOilAromaConfirmed && isPressurePreferenceChecked
 }

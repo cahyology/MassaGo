@@ -303,6 +303,15 @@ fun CustomerNavigation(
                     },
                     onNavigateToHistory = {
                         navController.navigate(CustomerScreen.History.route)
+                    },
+                    onNavigateToCheckout = { serviceId, therapistId, therapistName ->
+                        navController.navigate(
+                            CustomerScreen.Checkout.createRoute(
+                                serviceId = serviceId,
+                                preferredTherapistId = therapistId,
+                                preferredTherapistName = therapistName
+                            )
+                        )
                     }
                 )
             }
@@ -335,7 +344,9 @@ fun CustomerNavigation(
                     navArgument("aromaId") { type = NavType.StringType; defaultValue = "aroma-olive" },
                     navArgument("focusAreas") { type = NavType.StringType; defaultValue = "Pundak" },
                     navArgument("pressure") { type = NavType.StringType; defaultValue = "MEDIUM" },
-                    navArgument("gender") { type = NavType.StringType; defaultValue = "Bebas" }
+                    navArgument("gender") { type = NavType.StringType; defaultValue = "Bebas" },
+                    navArgument("preferredTherapistId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("preferredTherapistName") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { backStackEntry ->
                 val serviceId = backStackEntry.arguments?.getString("serviceId") ?: "SRV-TRAD"
@@ -344,10 +355,14 @@ fun CustomerNavigation(
                 val rawFocusAreas = backStackEntry.arguments?.getString("focusAreas") ?: "Pundak"
                 val pressure = backStackEntry.arguments?.getString("pressure") ?: "MEDIUM"
                 val rawGender = backStackEntry.arguments?.getString("gender") ?: "Bebas"
+                val rawTherapistId = backStackEntry.arguments?.getString("preferredTherapistId") ?: ""
+                val rawTherapistName = backStackEntry.arguments?.getString("preferredTherapistName") ?: ""
 
                 val aromaId = try { java.net.URLDecoder.decode(rawAromaId, "UTF-8") } catch (_: Exception) { rawAromaId }
                 val focusAreas = try { java.net.URLDecoder.decode(rawFocusAreas, "UTF-8") } catch (_: Exception) { rawFocusAreas }
                 val gender = try { java.net.URLDecoder.decode(rawGender, "UTF-8") } catch (_: Exception) { rawGender }
+                val therapistId = try { java.net.URLDecoder.decode(rawTherapistId, "UTF-8") } catch (_: Exception) { rawTherapistId }
+                val therapistName = try { java.net.URLDecoder.decode(rawTherapistName, "UTF-8") } catch (_: Exception) { rawTherapistName }
 
                 CheckoutScreen(
                     serviceId = serviceId,
@@ -356,6 +371,8 @@ fun CustomerNavigation(
                     focusAreasStr = focusAreas,
                     pressureStr = pressure,
                     genderPreference = gender,
+                    preferredTherapistId = therapistId,
+                    preferredTherapistName = therapistName,
                     onNavigateBack = { navController.popBackStack() },
                     onOrderPlaced = {
                         navController.navigate(CustomerScreen.Tracking.route) {
@@ -384,8 +401,18 @@ fun CustomerNavigation(
             composable(CustomerScreen.History.route) {
                 CustomerHistoryScreen(
                     onNavigateBack = { navController.navigate(CustomerScreen.Home.route) },
-                    onReorder = { serviceId ->
-                        navController.navigate(CustomerScreen.Detail.createRoute(serviceId))
+                    onReorder = { serviceId, therapistId, therapistName ->
+                        if (therapistId.isNotBlank()) {
+                            navController.navigate(
+                                CustomerScreen.Checkout.createRoute(
+                                    serviceId = serviceId,
+                                    preferredTherapistId = therapistId,
+                                    preferredTherapistName = therapistName
+                                )
+                            )
+                        } else {
+                            navController.navigate(CustomerScreen.Detail.createRoute(serviceId))
+                        }
                     }
                 )
             }

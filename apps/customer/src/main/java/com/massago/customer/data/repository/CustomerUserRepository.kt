@@ -41,10 +41,14 @@ class CustomerUserRepository private constructor() {
     private val _currentLocation = MutableStateFlow(CustomerLocation())
     val currentLocation: StateFlow<CustomerLocation> = _currentLocation.asStateFlow()
 
+    private val _favoriteTherapists = MutableStateFlow<List<FavoriteTherapist>>(emptyList())
+    val favoriteTherapists: StateFlow<List<FavoriteTherapist>> = _favoriteTherapists.asStateFlow()
+
     init {
         try {
             _profile.value = loadPersistedProfile()
             _currentLocation.value = loadPersistedLocation()
+            _favoriteTherapists.value = loadPersistedFavorites()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -294,6 +298,84 @@ class CustomerUserRepository private constructor() {
         return false
     }
 
+    private fun loadPersistedFavorites(): List<FavoriteTherapist> {
+        val p = prefs ?: return defaultFavorites()
+        val json = p.getString("FAVORITE_THERAPISTS_JSON", null)
+        if (!json.isNullOrBlank()) {
+            return try {
+                val type = object : TypeToken<List<FavoriteTherapist>>() {}.type
+                val list: List<FavoriteTherapist> = gson.fromJson(json, type)
+                if (list.isNotEmpty()) list else defaultFavorites()
+            } catch (_: Exception) {
+                defaultFavorites()
+            }
+        }
+        return defaultFavorites()
+    }
+
+    private fun defaultFavorites(): List<FavoriteTherapist> {
+        return listOf(
+            FavoriteTherapist(
+                id = "TRP-8821",
+                name = "Budi Santoso, S.Tr.Kes",
+                gender = "Pria",
+                rating = 4.98,
+                ordersCompleted = 340,
+                specialty = "Master Deep Tissue & Refleksi",
+                avatarInitials = "BS",
+                isOnline = true
+            ),
+            FavoriteTherapist(
+                id = "TRP-1049",
+                name = "Siti Rahmawati, A.Md.Keb",
+                gender = "Wanita",
+                rating = 4.95,
+                ordersCompleted = 210,
+                specialty = "Pijat Tradisional & Aromaterapi",
+                avatarInitials = "SR",
+                isOnline = true
+            )
+        )
+    }
+
+    fun isTherapistFavorite(therapistId: String): Boolean {
+        return _favoriteTherapists.value.any { it.id == therapistId }
+    }
+
+    fun addFavoriteTherapist(therapist: FavoriteTherapist) {
+        _favoriteTherapists.update { current ->
+            val mutable = current.toMutableList()
+            mutable.removeAll { it.id == therapist.id }
+            mutable.add(0, therapist)
+            persistFavorites(mutable)
+            mutable
+        }
+    }
+
+    fun removeFavoriteTherapist(therapistId: String) {
+        _favoriteTherapists.update { current ->
+            val mutable = current.toMutableList()
+            mutable.removeAll { it.id == therapistId }
+            persistFavorites(mutable)
+            mutable
+        }
+    }
+
+    fun toggleFavoriteTherapist(therapist: FavoriteTherapist) {
+        if (isTherapistFavorite(therapist.id)) {
+            removeFavoriteTherapist(therapist.id)
+        } else {
+            addFavoriteTherapist(therapist)
+        }
+    }
+
+    private fun persistFavorites(list: List<FavoriteTherapist>) {
+        try {
+            val json = gson.toJson(list)
+            prefs?.edit()?.putString("FAVORITE_THERAPISTS_JSON", json)?.apply()
+        } catch (_: Exception) {}
+    }
+
     suspend fun updateCustomerProfileInSupabase(
         name: String,
         phone: String,
@@ -337,3 +419,15 @@ class CustomerUserRepository private constructor() {
         val instance: CustomerUserRepository by lazy { CustomerUserRepository() }
     }
 }
+
+data class FavoriteTherapist(
+    val id: String,
+    val name: String,
+    val gender: String = "Wanita",
+    val rating: Double = 4.95,
+    val ordersCompleted: Int = 120,
+    val specialty: String = "Tradisional & Refleksi",
+    val avatarInitials: String = "BS",
+    val isOnline: Boolean = true,
+    val phone: String = ""
+)

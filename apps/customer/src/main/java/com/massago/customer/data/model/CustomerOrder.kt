@@ -52,6 +52,11 @@ data class CustomerOrder(
     val appliedVoucher: PromoVoucher? = null,
     val tipAmount: Long = 0L,
     val paymentMethod: CustomerPaymentMethod = CustomerPaymentMethod.PIJATIN_PAY,
+
+    // Preferred / Favorite Therapist & Scheduling
+    val preferredTherapistId: String? = null,
+    val isRepeatOrder: Boolean = false,
+    val scheduledTime: String? = null,
     
     // Live treatment session state
     val totalSeconds: Int = 90 * 60,
