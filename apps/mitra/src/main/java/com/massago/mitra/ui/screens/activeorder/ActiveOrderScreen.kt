@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.google.android.gms.maps.model.LatLng
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
@@ -96,6 +97,7 @@ fun ActiveOrderScreen(
     val context = LocalContext.current
     val activeOrder by viewModel.activeOrder.collectAsState()
     val unreadChatCount by ChatRepository.instance.unreadCount.collectAsState()
+    val therapistProfile by com.massago.mitra.data.repository.TherapistRepository.instance.therapistProfile.collectAsState()
     var showMitraSosDialog by remember { mutableStateOf(false) }
     var graceSecondsRemaining by remember { mutableIntStateOf(900) } // 15 Menit
 
@@ -330,7 +332,8 @@ fun ActiveOrderScreen(
                         MapSimulationView(
                             modifier = Modifier.fillMaxSize(),
                             isOnline = true,
-                            activeOrder = currentOrder
+                            activeOrder = currentOrder,
+                            mitraLocation = LatLng(therapistProfile.latitude, therapistProfile.longitude)
                         )
 
                         // Floating Navigate in Google Maps Button (Motorcycle Navigation mode=l)

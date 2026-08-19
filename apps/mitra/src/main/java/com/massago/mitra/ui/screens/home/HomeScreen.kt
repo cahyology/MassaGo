@@ -104,18 +104,28 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         try {
             val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
-            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) {
-                    com.massago.mitra.data.repository.TherapistRepository.instance.updateCurrentLocation(loc.latitude, loc.longitude)
-                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        com.massago.mitra.data.network.SupabaseClient.instance.updateLocationOnly(
-                            therapistId = therapistProfile.id,
-                            latitude = loc.latitude,
-                            longitude = loc.longitude
-                        )
+            fusedLocationClient.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        com.massago.mitra.data.repository.TherapistRepository.instance.updateCurrentLocation(loc.latitude, loc.longitude)
+                        val targetId = therapistProfile.id.ifBlank { therapistProfile.phone }
+                        if (targetId.isNotBlank()) {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.massago.mitra.data.network.SupabaseClient.instance.updateLocationOnly(
+                                    therapistId = targetId,
+                                    latitude = loc.latitude,
+                                    longitude = loc.longitude
+                                )
+                            }
+                        }
+                    } else {
+                        fusedLocationClient.lastLocation.addOnSuccessListener { cachedLoc ->
+                            if (cachedLoc != null) {
+                                com.massago.mitra.data.repository.TherapistRepository.instance.updateCurrentLocation(cachedLoc.latitude, cachedLoc.longitude)
+                            }
+                        }
                     }
                 }
-            }
         } catch (_: Exception) {}
     }
 

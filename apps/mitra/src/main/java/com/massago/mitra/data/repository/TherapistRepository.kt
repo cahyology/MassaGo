@@ -72,7 +72,7 @@ class TherapistRepository private constructor() {
                         val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
                         val req = okhttp3.Request.Builder()
-                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed")
+                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude")
                             .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
                             .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
                             .build()
@@ -95,6 +95,8 @@ class TherapistRepository private constructor() {
                                 val remoteWallet = obj.get("wallet_balance")?.asLong ?: 0L
                                 val rating = obj.get("rating")?.asDouble ?: 5.0
                                 val orders = obj.get("orders_completed")?.asInt ?: 0
+                                val remoteLat = obj.get("latitude")?.asDouble ?: _therapistProfile.value.latitude
+                                val remoteLng = obj.get("longitude")?.asDouble ?: _therapistProfile.value.longitude
 
                                 val isVerif = !remoteTier.contains("Menunggu") && !remoteTier.contains("Review") && !remoteTier.contains("Tolak") && !remoteTier.contains("Nonaktif")
 
@@ -120,7 +122,9 @@ class TherapistRepository private constructor() {
                                         depositBalance = remoteDeposit,
                                         mainBalance = remoteWallet,
                                         rating = rating,
-                                        totalOrdersCompleted = orders
+                                        totalOrdersCompleted = orders,
+                                        latitude = remoteLat,
+                                        longitude = remoteLng
                                     )
                                 }
                             }
