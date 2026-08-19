@@ -344,8 +344,7 @@ class CustomerUserRepository private constructor() {
                 val favTherapistIds = reviews.mapNotNull { r ->
                     val targetId = r["target_id"] as? String
                     val tags = (r["tags"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
-                    val rating = (r["rating"] as? Number)?.toInt() ?: 0
-                    if (!targetId.isNullOrBlank() && (tags.contains("FAVORITE_THERAPIST") || rating >= 4)) {
+                    if (!targetId.isNullOrBlank() && tags.contains("FAVORITE_THERAPIST")) {
                         targetId
                     } else null
                 }.distinct()

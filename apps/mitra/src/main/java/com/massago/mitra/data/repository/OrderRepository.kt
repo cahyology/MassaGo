@@ -430,6 +430,13 @@ class OrderRepository private constructor(
                 val platformCut = therapistRepository.platformCommissionPercent.value
                 val therapistRate = (100.0 - platformCut) / 100.0
 
+                val extraKm = (distKm - therapistLoc.maxRadiusKm).coerceAtLeast(0.0)
+                val extraTravelSurcharge = if (extraKm > 0.0) {
+                    (extraKm * 3000.0).toLong().coerceAtLeast(15000L)
+                } else {
+                    0L
+                }
+
                 val incomingOrder = Order(
                     id = orderId,
                     client = clientInfo,
@@ -442,6 +449,7 @@ class OrderRepository private constructor(
                     isRepeatOrder = isRepeatOrder,
                     preferredTherapistId = preferredTherapistId.ifBlank { null },
                     repeatBonusAmount = repeatBonusAmount,
+                    extraTravelSurcharge = extraTravelSurcharge,
                     totalTreatmentSeconds = duration * 60,
                     remainingTreatmentSeconds = duration * 60
                 )

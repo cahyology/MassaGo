@@ -276,7 +276,7 @@ class CustomerOrderRepository private constructor(
                     var restoredTherapist: TherapistItem? = null
                     if (!therapistId.isNullOrBlank() && mappedStatus != CustomerOrderStatus.SEARCHING_THERAPIST) {
                         val dbTherapist = SupabaseCustomerClient.instance.fetchTherapist(therapistId)
-                        val tName = dbTherapist?.get("name") as? String ?: "Budi Santoso, S.Tr.Kes"
+                        val tName = dbTherapist?.get("name") as? String ?: "Mitra Terapis MassaGo"
                         val tGender = dbTherapist?.get("gender") as? String ?: "Pria"
                         val tRating = (dbTherapist?.get("rating") as? Number)?.toDouble() ?: 4.95
                         val custLat = userRepository.currentLocation.value.latitude
@@ -491,7 +491,7 @@ class CustomerOrderRepository private constructor(
                             } else null
 
                             withContext(Dispatchers.Main) {
-                                val tName = dbTherapist?.get("name") as? String ?: "Budi Santoso, S.Tr.Kes"
+                                val tName = dbTherapist?.get("name") as? String ?: "Mitra Terapis MassaGo"
                                 val tGender = dbTherapist?.get("gender") as? String ?: "Pria"
                                 val tRating = (dbTherapist?.get("rating") as? Number)?.toDouble() ?: 4.95
                                 val custLat = _activeOrder.value?.location?.latitude ?: order.location.latitude

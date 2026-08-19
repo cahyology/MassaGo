@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MonetizationOn
@@ -103,29 +104,77 @@ fun IncomingOrderSheet(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = Color(0xFFFFFBEB),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, AmberGold),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, AmberGold),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 14.dp)
+                        .padding(bottom = 10.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "⭐", fontSize = 24.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(text = "⭐", fontSize = 28.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "PESANAN PELANGGAN LANGGANAN!",
+                                text = "PESANAN LANGGANAN VIP!",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                color = AmberGold
+                                fontSize = 13.sp,
+                                color = Color(0xFFB45309)
                             )
                             Text(
-                                text = "Pelanggan secara khusus memilih Anda. Bonus Loyalitas: +Rp ${currencyFormat.format(order.repeatBonusAmount)}!",
+                                text = "Pelanggan meminta Anda langsung! Bonus Tambahan: +Rp ${currencyFormat.format(order.repeatBonusAmount)} (100% Bersih)",
                                 style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 11.5.sp,
-                                color = Color(0xFF475569)
+                                color = Color(0xFF78350F)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // High Visibility Out-of-Range Extra Travel Surcharge Banner
+            if (order.extraTravelSurcharge > 0) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFFFF7ED),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF97316)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFEDD5)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DirectionsCar,
+                                contentDescription = null,
+                                tint = Color(0xFFEA580C),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "KOMPENSASI ONGKOS JARAK JAUH: +Rp ${currencyFormat.format(order.extraTravelSurcharge)}",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.5.sp,
+                                color = Color(0xFFC2410C)
+                            )
+                            Text(
+                                text = "Pelanggan setuju membayar biaya ekstra transportasi luar jangkauan (100% diterima bersih oleh mitra).",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = Color(0xFF9A3412)
                             )
                         }
                     }

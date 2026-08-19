@@ -108,9 +108,14 @@ fun CheckoutScreen(
 ) {
     var activePreferredTherapistId by remember(preferredTherapistId) { mutableStateOf(preferredTherapistId) }
     var activePreferredTherapistName by remember(preferredTherapistName) { mutableStateOf(preferredTherapistName) }
+    var activeServiceId by remember(serviceId) { mutableStateOf(serviceId) }
+    var activeDurationMinutes by remember(durationMinutes) { androidx.compose.runtime.mutableIntStateOf(durationMinutes) }
 
-    val service = com.massago.customer.data.repository.CustomerOrderRepository.instance.serviceCatalog.value.find { it.id == serviceId }
-        ?: CustomerPredefinedServices.SERVICES.find { it.id == serviceId }
+    val serviceCatalog by com.massago.customer.data.repository.CustomerOrderRepository.instance.serviceCatalog.collectAsState()
+    val allAvailableServices = if (serviceCatalog.isNotEmpty()) serviceCatalog else CustomerPredefinedServices.SERVICES
+
+    val service = allAvailableServices.find { it.id == activeServiceId }
+        ?: CustomerPredefinedServices.SERVICES.find { it.id == activeServiceId }
         ?: CustomerPredefinedServices.SERVICES[0]
     val selectedAroma = CustomerPredefinedServices.AVAILABLE_AROMAS.find { it.id == aromaId }
         ?: CustomerPredefinedServices.AVAILABLE_AROMAS[0]
@@ -150,6 +155,7 @@ fun CheckoutScreen(
 
     var showVoucherSheet by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
+    var showServicePickerSheet by remember { mutableStateOf(false) }
     var showLocationPickerSheet by remember { mutableStateOf(false) }
     var showMapPinPickerDialog by remember { mutableStateOf(false) }
     var liveBanks by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
@@ -163,7 +169,7 @@ fun CheckoutScreen(
     val currencyFormat = NumberFormat.getNumberInstance(Locale("id", "ID"))
 
     // Pricing calculation with dynamic extra travel surcharge
-    val basePrice = service.durations.find { it.minutes == durationMinutes }?.price ?: service.startingPrice
+    val basePrice = service.durations.find { it.minutes == activeDurationMinutes }?.price ?: service.startingPrice
     val subtotal = basePrice + selectedAroma.extraFee
     val travelFee = 15000L
     val hygieneFee = 5000L
@@ -252,7 +258,7 @@ fun CheckoutScreen(
                             val orderId = "ORD-${System.currentTimeMillis()}"
                             viewModel.placeOrder(
                                 serviceId = service.id,
-                                durationMinutes = durationMinutes,
+                                durationMinutes = activeDurationMinutes,
                                 aromaId = selectedAroma.id,
                                 focusAreas = focusAreas,
                                 pressureLevel = pressureLevel,
@@ -682,20 +688,51 @@ fun CheckoutScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = service.iconEmoji, fontSize = 28.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = service.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "$durationMinutes Menit • ${selectedAroma.name}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
-                                )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = service.iconEmoji, fontSize = 28.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = service.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "$activeDurationMinutes Menit • ${selectedAroma.name}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = EmeraldLight.copy(alpha = 0.5f),
+                                modifier = Modifier.clickable { showServicePickerSheet = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = EmeraldDark,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Ganti",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldDark
+                                    )
+                                }
                             }
                         }
 
@@ -1068,7 +1105,7 @@ fun CheckoutScreen(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        PriceRow(label = "Biaya Layanan (${durationMinutes} mnt)", value = "Rp " + currencyFormat.format(basePrice))
+                        PriceRow(label = "Biaya Layanan (${activeDurationMinutes} mnt)", value = "Rp " + currencyFormat.format(basePrice))
                         if (selectedAroma.extraFee > 0) {
                             PriceRow(label = "Aromaterapi (${selectedAroma.name})", value = "Rp " + currencyFormat.format(selectedAroma.extraFee))
                         }

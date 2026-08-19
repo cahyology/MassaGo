@@ -106,18 +106,38 @@ class MitraLocationService : Service() {
     }
 
     private var isExplicitStop = false
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
         when (action) {
             ACTION_START -> {
                 isExplicitStop = false
+                try {
+                    val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                    if (wakeLock == null) {
+                        wakeLock = powerManager?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "MassaGoMitra::LocationAndOrderWakeLock")?.apply {
+                            setReferenceCounted(false)
+                            acquire(12 * 60 * 60 * 1000L) // 12 hours max standby
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
                 startForeground(NOTIFICATION_ID, buildForegroundNotification())
                 requestLocationUpdates()
                 com.massago.mitra.data.repository.OrderRepository.instance.startRealtimeOrderPolling()
             }
             ACTION_STOP -> {
                 isExplicitStop = true
+                try {
+                    if (wakeLock?.isHeld == true) {
+                        wakeLock?.release()
+                    }
+                    wakeLock = null
+                } catch (_: Exception) {}
+
                 com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
                 stopLocationUpdates()
                 val currentProfile = therapistRepository.therapistProfile.value
@@ -228,6 +248,13 @@ class MitraLocationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+            wakeLock = null
+        } catch (_: Exception) {}
+
         if (isExplicitStop) {
             com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
             stopLocationUpdates()
