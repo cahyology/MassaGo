@@ -275,12 +275,15 @@ class OrderRepository private constructor(
             val orders = SupabaseClient.instance.fetchPendingOrders(therapistLoc.id, therapistLoc.phone)
             val now = System.currentTimeMillis()
 
-            // Exclude orders that have already been declined or handled by this therapist or are stale (> 5 mins old)
+            // Exclude orders that have already been declined or handled by this therapist
             val eligibleOrders = orders.filter { order ->
                 val orderId = order["id"] as? String ?: ""
                 val rawCreatedAt = order["created_at"]
                 val isFresh = if (rawCreatedAt is Number) {
-                    (now - rawCreatedAt.toLong()) < (300 * 1000)
+                    val rawVal = rawCreatedAt.toLong()
+                    val orderMs = if (rawVal < 10_000_000_000L) rawVal * 1000L else rawVal
+                    val diff = kotlin.math.abs(now - orderMs)
+                    diff < (30 * 60 * 1000) // 30 minutes threshold
                 } else if (rawCreatedAt is String) {
                     try {
                         val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
@@ -289,7 +292,7 @@ class OrderRepository private constructor(
                         val cleanDateStr = rawCreatedAt.take(19)
                         val date = parser.parse(cleanDateStr)
                         val orderTime = date?.time ?: now
-                        (now - orderTime) < (300 * 1000)
+                        kotlin.math.abs(now - orderTime) < (30 * 60 * 1000)
                     } catch (_: Exception) {
                         true
                     }
@@ -297,11 +300,6 @@ class OrderRepository private constructor(
                     true
                 }
 
-                if (!isFresh && orderId.isNotBlank()) {
-                    coroutineScope.launch(Dispatchers.IO) {
-                        SupabaseClient.instance.declineOrder(orderId)
-                    }
-                }
                 orderId.isNotBlank() && !dismissedOrderIds.contains(orderId) && isFresh
             }
 

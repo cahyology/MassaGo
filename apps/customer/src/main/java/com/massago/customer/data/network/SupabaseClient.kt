@@ -139,12 +139,18 @@ class SupabaseCustomerClient(
                 .build()
 
             val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: ""
             if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext null
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                list.firstOrNull()
+                if (body.isBlank()) return@withContext mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+                try {
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(body, type)
+                    list.firstOrNull() ?: mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+                } catch (_: Exception) {
+                    mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+                }
             } else {
+                android.util.Log.e("SupabaseClient", "createOrder ERROR ${response.code}: $body")
                 null
             }
         } catch (e: Exception) {

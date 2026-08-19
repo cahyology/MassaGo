@@ -456,7 +456,6 @@ class CustomerOrderRepository private constructor(
                     addProperty("customer_phone", currentProfile.phone)
                     addProperty("address", formattedAddress)
                     addProperty("gender_preference", genderPreference)
-                    addProperty("recipient_gender", recipientGender)
                     addProperty("created_at", System.currentTimeMillis())
 
                     if (!preferredTherapistId.isNullOrBlank()) {

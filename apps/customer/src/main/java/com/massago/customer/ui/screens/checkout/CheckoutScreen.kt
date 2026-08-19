@@ -254,7 +254,7 @@ fun CheckoutScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "⚖️ Layanan pijat kesehatan keluarga murni tanpa asusila (Pasal 281 KUHP).",
+                            text = "Saya menyetujui Ketentuan Layanan Kebugaran Keluarga Profesional (Bebas Asusila • Pasal 281 KUHP).",
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
