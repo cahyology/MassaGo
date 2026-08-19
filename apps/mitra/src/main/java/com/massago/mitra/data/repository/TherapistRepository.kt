@@ -286,10 +286,11 @@ class TherapistRepository private constructor() {
         }
 
         _therapistProfile.update { it.copy(dutyStatus = status) }
+        val identifier = current.id.ifBlank { current.phone }
         scope.launch {
-            if (current.id.isNotBlank()) {
+            if (identifier.isNotBlank()) {
                 SupabaseClient.instance.updateDutyStatus(
-                    therapistId = current.id,
+                    therapistId = identifier,
                     isOnline = (status == DutyStatus.ONLINE)
                 )
             }

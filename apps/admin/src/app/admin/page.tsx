@@ -78,8 +78,8 @@ export default function AdminPage() {
 
   const [activeSosCount, setActiveSosCount] = useState<number>(0);
 
-  const loadData = async () => {
-    setIsRefreshing(true);
+  const loadData = async (showSpinner = false) => {
+    if (showSpinner) setIsRefreshing(true);
     try {
       const [tData, oData, cData, sData, vData, sosRes] = await Promise.all([
         getTherapists(),
@@ -98,42 +98,47 @@ export default function AdminPage() {
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
-      setIsRefreshing(false);
+      if (showSpinner) setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
 
-    // Setup Supabase Realtime Subscription for live order & therapist state
+    // 1. Setup Supabase Realtime Subscription for instant live changes
     const channel = supabase
       .channel('admin-dashboard-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         () => {
-          loadData();
+          loadData(false);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'therapists' },
         () => {
-          loadData();
+          loadData(false);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sos_emergency_logs' },
         () => {
-          // If SOS occurs, force reload
-          loadData();
+          loadData(false);
         }
       )
       .subscribe();
 
+    // 2. Heartbeat auto-sync (every 2.5s) to guarantee zero miss across browser tabs
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 2500);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, []);
 
