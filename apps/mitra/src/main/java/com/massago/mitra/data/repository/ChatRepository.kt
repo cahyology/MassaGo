@@ -57,21 +57,6 @@ class ChatRepository private constructor() {
 
     fun initializeChatForOrder(clientName: String, orderId: String? = null) {
         currentOrderId = orderId
-        if (_messages.value.isEmpty()) {
-            val now = System.currentTimeMillis()
-            _messages.value = listOf(
-                ChatMessage(
-                    id = "MSG-1",
-                    senderId = "CUSTOMER",
-                    senderName = clientName,
-                    isFromCustomer = true,
-                    isFromTherapist = false,
-                    message = "Halo Pak terapis, nanti kalau sudah sampai lobi kabari ya 🙏",
-                    timestampMillis = now - 120000L
-                )
-            )
-            lastSeenMessageCount = _messages.value.size
-        }
 
         if (!orderId.isNullOrBlank()) {
             startChatSync(orderId, clientName)

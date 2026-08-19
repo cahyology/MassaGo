@@ -59,21 +59,6 @@ class CustomerChatRepository private constructor() {
         if (currentOrderId == orderId && syncJob?.isActive == true) return
         currentOrderId = orderId
 
-        if (_messages.value.isEmpty()) {
-            _messages.value = listOf(
-                CustomerChatMessage(
-                    id = "init-1",
-                    senderId = "THERAPIST",
-                    senderName = therapistName,
-                    isFromCustomer = false,
-                    isFromTherapist = true,
-                    message = "Halo Kak! Saya sedang dalam perjalanan menuju lokasi Anda ya 🙏",
-                    timestampMillis = System.currentTimeMillis() - 60000
-                )
-            )
-            lastSeenMessageCount = _messages.value.size
-        }
-
         syncJob?.cancel()
         syncJob = scope.launch {
             while (currentOrderId == orderId) {

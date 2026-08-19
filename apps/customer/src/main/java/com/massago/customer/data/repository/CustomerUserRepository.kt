@@ -299,43 +299,25 @@ class CustomerUserRepository private constructor() {
     }
 
     private fun loadPersistedFavorites(): List<FavoriteTherapist> {
-        val p = prefs ?: return defaultFavorites()
+        val p = prefs ?: return emptyList()
         val json = p.getString("FAVORITE_THERAPISTS_JSON", null)
         if (!json.isNullOrBlank()) {
             return try {
                 val type = object : TypeToken<List<FavoriteTherapist>>() {}.type
-                val list: List<FavoriteTherapist> = gson.fromJson(json, type)
-                if (list.isNotEmpty()) list else defaultFavorites()
+                val list: List<FavoriteTherapist> = gson.fromJson(json, type) ?: emptyList()
+                // Filter out any past dummy data if present
+                val cleaned = list.filterNot { it.id == "TRP-8821" || it.id == "TRP-1049" }
+                cleaned
             } catch (_: Exception) {
-                defaultFavorites()
+                emptyList()
             }
         }
-        return defaultFavorites()
+        return emptyList()
     }
 
-    private fun defaultFavorites(): List<FavoriteTherapist> {
-        return listOf(
-            FavoriteTherapist(
-                id = "TRP-8821",
-                name = "Budi Santoso, S.Tr.Kes",
-                gender = "Pria",
-                rating = 4.98,
-                ordersCompleted = 340,
-                specialty = "Master Deep Tissue & Refleksi",
-                avatarInitials = "BS",
-                isOnline = true
-            ),
-            FavoriteTherapist(
-                id = "TRP-1049",
-                name = "Siti Rahmawati, A.Md.Keb",
-                gender = "Wanita",
-                rating = 4.95,
-                ordersCompleted = 210,
-                specialty = "Pijat Tradisional & Aromaterapi",
-                avatarInitials = "SR",
-                isOnline = true
-            )
-        )
+    fun clearAllFavorites() {
+        _favoriteTherapists.value = emptyList()
+        prefs?.edit()?.remove("FAVORITE_THERAPISTS_JSON")?.apply()
     }
 
     fun isTherapistFavorite(therapistId: String): Boolean {
