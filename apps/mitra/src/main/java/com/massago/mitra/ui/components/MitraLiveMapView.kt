@@ -122,34 +122,28 @@ fun MitraLiveMapView(
         }
     }
 
-    // Real driving route, accurate road distance and traffic duration
-    var routeInfo by remember(customerLocation, effectiveMitraGps, activeOrder?.id) {
-        val dLat = Math.toRadians(customerLocation.latitude - effectiveMitraGps.latitude)
-        val dLng = Math.toRadians(customerLocation.longitude - effectiveMitraGps.longitude)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(effectiveMitraGps.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
-                Math.sin(dLng / 2) * Math.sin(dLng / 2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        val initialDist = (6371.0 * c * 1.25 * 10).toInt() / 10.0
-
-        mutableStateOf(
-            DrivingRouteInfo(
-                points = listOf(effectiveMitraGps, customerLocation),
-                distanceKm = initialDist,
-                durationMinutes = (initialDist * 2.5).toInt().coerceAtLeast(1)
-            )
-        )
-    }
+    // Persistent Real driving road route state (never resets to straight line on GPS tick)
+    var routePoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
+    var routeDistanceKm by remember { androidx.compose.runtime.mutableDoubleStateOf(0.0) }
+    var routeEtaMinutes by remember { androidx.compose.runtime.mutableIntStateOf(10) }
 
     LaunchedEffect(customerLocation, effectiveMitraGps, activeOrder?.id) {
-        if (activeOrder != null) {
+        if (activeOrder != null && activeOrder.status != OrderStatus.INCOMING) {
             val info = GoogleDirectionsHelper.getDrivingRouteInfo(effectiveMitraGps, customerLocation)
-            routeInfo = info
+            if (info.points.size >= 2) {
+                routePoints = info.points
+                routeDistanceKm = info.distanceKm
+                routeEtaMinutes = info.durationMinutes
+            }
+        } else {
+            routePoints = emptyList()
+            routeDistanceKm = 0.0
+            routeEtaMinutes = 0
         }
     }
 
-    val realDistanceKm = routeInfo.distanceKm
-    val realEtaMinutes = routeInfo.durationMinutes
+    val realDistanceKm = routeDistanceKm
+    val realEtaMinutes = routeEtaMinutes
 
     // Standalone Yellow Motorcycle Custom Marker Icon (NO background circle!)
     val yellowMotorIcon = remember(context) {
@@ -212,7 +206,7 @@ fun MitraLiveMapView(
                 )
             }
 
-            // Jika Ada Pesanan Aktif: Tampilkan Marker Klien & Rute
+            // Jika Ada Pesanan Aktif: Tampilkan Marker Klien & Rute Jalan Nyata (Smooth, Tanpa Flicker)
             if (activeOrder != null && activeOrder.status != OrderStatus.INCOMING) {
                 Marker(
                     state = MarkerState(position = customerLocation),
@@ -220,11 +214,16 @@ fun MitraLiveMapView(
                     snippet = activeOrder.client.address
                 )
 
-                Polyline(
-                    points = routeInfo.points,
-                    color = EmeraldPrimary,
-                    width = 14f
-                )
+                if (routePoints.size >= 2) {
+                    Polyline(
+                        points = routePoints,
+                        color = EmeraldPrimary,
+                        width = 14f,
+                        jointType = com.google.android.gms.maps.model.JointType.ROUND,
+                        startCap = com.google.android.gms.maps.model.RoundCap(),
+                        endCap = com.google.android.gms.maps.model.RoundCap()
+                    )
+                }
             }
         }
 

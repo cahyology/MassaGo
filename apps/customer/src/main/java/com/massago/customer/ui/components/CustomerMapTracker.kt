@@ -65,44 +65,28 @@ fun CustomerMapTracker(
         }
     }
 
-    // Real driving route, accurate road distance and traffic duration
-    var routeInfo by remember(customerLocation, effectiveTherapistLoc, isSearching) {
-        if (isSearching) {
-            mutableStateOf(
-                com.massago.customer.util.DrivingRouteInfo(
-                    points = emptyList(),
-                    distanceKm = 0.0,
-                    durationMinutes = 0
-                )
-            )
-        } else {
-            val dLat = Math.toRadians(customerLocation.latitude - effectiveTherapistLoc.latitude)
-            val dLng = Math.toRadians(customerLocation.longitude - effectiveTherapistLoc.longitude)
-            val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(Math.toRadians(effectiveTherapistLoc.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
-                    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-            val initialDist = (6371.0 * c * 1.25 * 10).toInt() / 10.0
-
-            mutableStateOf(
-                com.massago.customer.util.DrivingRouteInfo(
-                    points = listOf(effectiveTherapistLoc, customerLocation),
-                    distanceKm = initialDist,
-                    durationMinutes = etaMinutes.coerceAtLeast(1)
-                )
-            )
-        }
-    }
+    // Persistent Real driving road route state (never resets to straight line on GPS tick)
+    var routePoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
+    var routeDistanceKm by remember { androidx.compose.runtime.mutableDoubleStateOf(0.0) }
+    var routeEtaMinutes by remember { androidx.compose.runtime.mutableIntStateOf(etaMinutes.coerceAtLeast(1)) }
 
     LaunchedEffect(customerLocation, effectiveTherapistLoc, isSearching) {
-        if (!isSearching) {
+        if (isSearching) {
+            routePoints = emptyList()
+            routeDistanceKm = 0.0
+            routeEtaMinutes = 0
+        } else {
             val info = GoogleDirectionsHelper.getDrivingRouteInfo(effectiveTherapistLoc, customerLocation)
-            routeInfo = info
+            if (info.points.size >= 2) {
+                routePoints = info.points
+                routeDistanceKm = info.distanceKm
+                routeEtaMinutes = info.durationMinutes
+            }
         }
     }
 
-    val distanceKm = routeInfo.distanceKm
-    val liveEta = routeInfo.durationMinutes
+    val distanceKm = routeDistanceKm
+    val liveEta = routeEtaMinutes
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(customerLocation, 16f)
@@ -174,12 +158,15 @@ fun CustomerMapTracker(
                     icon = yellowMotorIcon
                 )
 
-                // Real Street-following Direction Polyline
-                if (routeInfo.points.size >= 2) {
+                // Real Street-following Direction Polyline (Smooth & Never Flickering)
+                if (routePoints.size >= 2) {
                     Polyline(
-                        points = routeInfo.points,
+                        points = routePoints,
                         color = EmeraldPrimary,
-                        width = 14f
+                        width = 14f,
+                        jointType = com.google.android.gms.maps.model.JointType.ROUND,
+                        startCap = com.google.android.gms.maps.model.RoundCap(),
+                        endCap = com.google.android.gms.maps.model.RoundCap()
                     )
                 }
             }
