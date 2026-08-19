@@ -65,13 +65,13 @@ fun ServicesManagementScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Katalog Layanan & Alat",
+                        text = "Kelola Menu Layanan",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color.White
                 )
             )
         }
@@ -80,7 +80,7 @@ fun ServicesManagementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF8FAFC))
+                .background(Color.White)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -146,7 +146,7 @@ private fun ServiceItemCard(
         color = Color.White,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (isEnabled) EmeraldPrimary.copy(alpha = 0.4f) else Color(0xFFE2E8F0)
+            if (isEnabled) EmeraldPrimary.copy(alpha = 0.4f) else Color(0xFFF1F5F9)
         ),
         shadowElevation = if (isEnabled) 2.dp else 0.dp
     ) {

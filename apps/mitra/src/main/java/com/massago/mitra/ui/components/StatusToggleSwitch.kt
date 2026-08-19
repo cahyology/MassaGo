@@ -65,8 +65,8 @@ fun StatusToggleSwitch(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
-        shadowElevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+        shadowElevation = 3.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9))
     ) {
         Row(
             modifier = Modifier

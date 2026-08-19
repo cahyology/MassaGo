@@ -227,7 +227,7 @@ fun MitraLiveMapView(
             }
         }
 
-        // Floating Recenter on Real GPS Button
+        // Floating Recenter on Real GPS Button (Positioned cleanly at bottom-right above card)
         FloatingActionButton(
             onClick = {
                 try {
@@ -256,10 +256,14 @@ fun MitraLiveMapView(
             shape = CircleShape,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 190.dp)
+                .padding(end = 16.dp, bottom = 120.dp)
                 .size(46.dp)
         ) {
-            Icon(imageVector = Icons.Default.MyLocation, contentDescription = "Posisiku")
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = "Posisiku",
+                modifier = Modifier.size(22.dp)
+            )
         }
 
         // Floating Live ETA Badge when active order is on the way

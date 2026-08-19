@@ -277,23 +277,7 @@ fun HomeScreen(
             )
         }
 
-        // 3. Floating Quick Recenter Button (on Map)
-        FloatingActionButton(
-            onClick = { /* Recenter map camera on Mitra GPS */ },
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = EmeraldDark,
-            shape = CircleShape,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = if (isSummaryExpanded) 220.dp else 115.dp)
-                .size(44.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.MyLocation,
-                contentDescription = "Posisiku",
-                modifier = Modifier.size(20.dp)
-            )
-        }
+
 
         // 4. Modern Bottom Floating Panel: Compact Earnings Strip & Filter Pill
         Column(
@@ -316,7 +300,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
                 color = Color.White,
-                shadowElevation = 0.dp,
+                shadowElevation = 4.dp,
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
                     Color(0xFFF1F5F9)
@@ -589,8 +573,8 @@ fun HomeScreen(
                                     )
                                 },
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) EmeraldPrimary else Color(0xFFF8FAFC),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)),
+                            color = if (isSelected) EmeraldPrimary else Color.White,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) EmeraldPrimary else Color(0xFFF1F5F9)),
                             shadowElevation = 0.dp
                         ) {
                             Box(

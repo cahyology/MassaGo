@@ -62,9 +62,9 @@ fun TopHeaderBar(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+        color = Color.White,
+        shadowElevation = 3.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9))
     ) {
         Row(
             modifier = Modifier

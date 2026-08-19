@@ -80,7 +80,7 @@ fun OrderHistoryScreen(
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color.White
                 )
             )
         }
@@ -89,9 +89,9 @@ fun OrderHistoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF8FAFC))
+                .background(Color.White)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (history.isEmpty()) {
                 item {
@@ -147,8 +147,8 @@ private fun OrderHistoryCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        shadowElevation = 1.dp
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier

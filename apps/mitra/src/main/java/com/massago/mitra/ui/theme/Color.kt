@@ -27,7 +27,7 @@ val LavenderDark = Color(0xFF6D28D9)        // Violet 700
 // ☀️ Light Mode Surfaces (Clean Pure White - Gojek Inspired)
 val BgLight = Color(0xFFFFFFFF)             // Pure White
 val CardLight = Color(0xFFFFFFFF)           // Pure White Card
-val CardLightSubtle = Color(0xFFF8FAFC)     // Slate 50
+val CardLightSubtle = Color(0xFFFFFFFF)     // Pure White
 val BorderLight = Color(0xFFF1F5F9)         // Slate 100 - Clean 1dp strokes
 val TextPrimaryLight = Color(0xFF0F172A)    // Slate 900 - High Contrast
 val TextSecondaryLight = Color(0xFF475569)  // Slate 600
