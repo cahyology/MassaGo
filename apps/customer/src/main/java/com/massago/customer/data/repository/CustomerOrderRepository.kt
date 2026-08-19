@@ -434,8 +434,6 @@ class CustomerOrderRepository private constructor(
                     addProperty("duration_minutes", durationMinutes)
                     addProperty("total_price", newOrder.grandTotal)
                     addProperty("status", "PENDING")
-                    addProperty("payment_method", paymentMethod.name)
-                    addProperty("payment_status", if (paymentMethod == CustomerPaymentMethod.PIJATIN_PAY) "PAID" else "UNPAID")
                     addProperty("customer_name", currentProfile.name)
                     addProperty("customer_phone", currentProfile.phone)
                     addProperty("address", formattedAddress)
