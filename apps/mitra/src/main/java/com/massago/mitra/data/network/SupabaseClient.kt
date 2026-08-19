@@ -194,10 +194,22 @@ class SupabaseClient(
     /**
      * Fetch pending incoming orders from Supabase reliably
      */
-    suspend fun fetchPendingOrders(): List<Map<String, Any>> = withContext(Dispatchers.IO) {
+    suspend fun fetchPendingOrders(therapistId: String = "", phone: String = ""): List<Map<String, Any>> = withContext(Dispatchers.IO) {
         try {
+            var cleanPhone = phone.replace("[^0-9]".toRegex(), "")
+            if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+            val query = if (therapistId.isNotBlank() || cleanPhone.isNotBlank()) {
+                val conditions = mutableListOf("therapist_id.is.null")
+                if (therapistId.isNotBlank()) conditions.add("therapist_id.eq.$therapistId")
+                if (cleanPhone.isNotBlank()) conditions.add("therapist_id.eq.$cleanPhone")
+                "status=eq.PENDING&or=(${conditions.joinToString(",")})&select=*&order=created_at.desc&limit=5"
+            } else {
+                "status=eq.PENDING&select=*&order=created_at.desc&limit=5"
+            }
+
             val request = Request.Builder()
-                .url("$baseUrl/rest/v1/orders?status=eq.PENDING&therapist_id=is.null&select=*&order=created_at.desc&limit=1")
+                .url("$baseUrl/rest/v1/orders?$query")
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
                 .get()
                 .build()
 

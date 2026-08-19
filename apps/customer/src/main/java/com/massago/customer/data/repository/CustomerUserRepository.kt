@@ -53,6 +53,7 @@ class CustomerUserRepository private constructor() {
             e.printStackTrace()
         }
         fetchSavedAddressesFromSupabase()
+        fetchFavoriteTherapistsFromSupabase()
     }
 
     private fun loadPersistedProfile(): CustomerProfile {
@@ -189,6 +190,7 @@ class CustomerUserRepository private constructor() {
             updated
         }
         fetchSavedAddressesFromSupabase()
+        fetchFavoriteTherapistsFromSupabase()
         CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
     }
 
@@ -305,14 +307,93 @@ class CustomerUserRepository private constructor() {
             return try {
                 val type = object : TypeToken<List<FavoriteTherapist>>() {}.type
                 val list: List<FavoriteTherapist> = gson.fromJson(json, type) ?: emptyList()
-                // Filter out any past dummy data if present
-                val cleaned = list.filterNot { it.id == "TRP-8821" || it.id == "TRP-1049" }
-                cleaned
+                list
             } catch (_: Exception) {
                 emptyList()
             }
         }
         return emptyList()
+    }
+
+    fun fetchFavoriteTherapistsFromSupabase() {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                var cleanPhone = _profile.value.phone.replace("[^0-9]".toRegex(), "")
+                if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+                else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+                val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+
+                if (cleanPhone.isBlank()) return@launch
+
+                // 1. Query reviews where customer saved favorite or gave 5-star rating
+                val req = Request.Builder()
+                    .url("${SupabaseConfig.URL}/rest/v1/reviews?reviewer_type=eq.CUSTOMER&or=(reviewer_id.eq.$cleanPhone,reviewer_id.eq.$localPhone)&select=*&order=created_at.desc")
+                    .header("apikey", SupabaseConfig.ANON_KEY)
+                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                    .get()
+                    .build()
+
+                val client = OkHttpClient()
+                val res = client.newCall(req).execute()
+                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                val reviews: List<Map<String, Any>> = if (res.isSuccessful) {
+                    val body = res.body?.string() ?: "[]"
+                    gson.fromJson(body, listType) ?: emptyList()
+                } else emptyList()
+
+                val favTherapistIds = reviews.mapNotNull { r ->
+                    val targetId = r["target_id"] as? String
+                    val tags = (r["tags"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+                    val rating = (r["rating"] as? Number)?.toInt() ?: 0
+                    if (!targetId.isNullOrBlank() && (tags.contains("FAVORITE_THERAPIST") || rating >= 4)) {
+                        targetId
+                    } else null
+                }.distinct()
+
+                if (favTherapistIds.isNotEmpty()) {
+                    val loadedFavorites = mutableListOf<FavoriteTherapist>()
+                    for (tid in favTherapistIds) {
+                        try {
+                            val rec = com.massago.customer.data.network.SupabaseCustomerClient.instance.fetchTherapistLiveRecord(tid)
+                            if (rec != null) {
+                                val name = (rec["name"] as? String) ?: "Terapis Langganan"
+                                val gender = (rec["gender"] as? String) ?: "Wanita"
+                                val rating = (rec["rating"] as? Number)?.toDouble() ?: 4.95
+                                val orders = (rec["orders_completed"] as? Number)?.toInt() ?: 25
+                                val isOnline = (rec["is_online"] as? Boolean) == true
+                                val phone = (rec["phone"] as? String) ?: ""
+                                val initials = name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "TL" }
+
+                                loadedFavorites.add(
+                                    FavoriteTherapist(
+                                        id = (rec["id"] as? String) ?: tid,
+                                        name = name,
+                                        gender = gender,
+                                        rating = rating,
+                                        ordersCompleted = orders,
+                                        specialty = "Tradisional & Relaksasi",
+                                        avatarInitials = initials,
+                                        isOnline = isOnline,
+                                        phone = phone
+                                    )
+                                )
+                            }
+                        } catch (_: Exception) {}
+                    }
+
+                    if (loadedFavorites.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            _favoriteTherapists.update { cur ->
+                                (loadedFavorites + cur).distinctBy { it.id }
+                            }
+                            persistFavorites(_favoriteTherapists.value)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun clearAllFavorites() {
@@ -331,6 +412,41 @@ class CustomerUserRepository private constructor() {
             mutable.add(0, therapist)
             persistFavorites(mutable)
             mutable
+        }
+
+        // Sync to Supabase reviews table as Cloud Favorite
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                var cleanPhone = _profile.value.phone.replace("[^0-9]".toRegex(), "")
+                if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+                else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+
+                if (cleanPhone.isNotBlank()) {
+                    val payload = com.google.gson.JsonObject().apply {
+                        addProperty("id", "REV-FAV-$cleanPhone-${therapist.id}")
+                        addProperty("order_id", "FAV-INITIAL")
+                        addProperty("reviewer_type", "CUSTOMER")
+                        addProperty("reviewer_id", cleanPhone)
+                        addProperty("target_id", therapist.id)
+                        addProperty("rating", 5)
+                        val tagsArr = com.google.gson.JsonArray().apply { add("FAVORITE_THERAPIST") }
+                        add("tags", tagsArr)
+                        addProperty("review_text", "Saved as Favorite")
+                    }
+
+                    val req = Request.Builder()
+                        .url("${SupabaseConfig.URL}/rest/v1/reviews")
+                        .header("apikey", SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                        .header("Prefer", "resolution=merge-duplicates")
+                        .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
+                        .build()
+
+                    OkHttpClient().newCall(req).execute()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

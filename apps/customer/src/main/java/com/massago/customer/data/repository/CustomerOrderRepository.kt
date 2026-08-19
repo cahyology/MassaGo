@@ -430,6 +430,13 @@ class CustomerOrderRepository private constructor(
                     if (loc.notes.isNotBlank()) {
                         append(" [NOTE:").append(loc.notes).append("]")
                     }
+                    if (!preferredTherapistId.isNullOrBlank()) {
+                        append(" [PREFERRED_THERAPIST:").append(preferredTherapistId).append("]")
+                        append(" [REPEAT_ORDER:true]")
+                    }
+                    if (!scheduledTime.isNullOrBlank()) {
+                        append(" [SCHEDULED_TIME:").append(scheduledTime).append("]")
+                    }
                 }
 
                 val currentProfile = userRepository.profile.value
@@ -449,14 +456,15 @@ class CustomerOrderRepository private constructor(
                     addProperty("created_at", System.currentTimeMillis())
 
                     if (!preferredTherapistId.isNullOrBlank()) {
-                        addProperty("preferred_therapist_id", preferredTherapistId)
-                        addProperty("is_repeat_order", true)
-                    }
-                    if (!scheduledTime.isNullOrBlank()) {
-                        addProperty("scheduled_time", scheduledTime)
+                        addProperty("therapist_id", preferredTherapistId)
                     }
                 }
-                SupabaseCustomerClient.instance.createOrder(orderJson)
+                val created = SupabaseCustomerClient.instance.createOrder(orderJson)
+                if (created == null) {
+                    // Fallback without therapist_id if targeted therapist column has foreign key constraint
+                    orderJson.remove("therapist_id")
+                    SupabaseCustomerClient.instance.createOrder(orderJson)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

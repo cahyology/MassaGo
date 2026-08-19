@@ -270,7 +270,8 @@ class OrderRepository private constructor(
 
     private suspend fun checkForRealIncomingOrder() = withContext(Dispatchers.IO) {
         try {
-            val orders = SupabaseClient.instance.fetchPendingOrders()
+            val therapistLoc = therapistRepository.therapistProfile.value
+            val orders = SupabaseClient.instance.fetchPendingOrders(therapistLoc.id, therapistLoc.phone)
             val now = System.currentTimeMillis()
             // Exclude orders that have already been declined or handled by this therapist or are stale (> 3 mins old)
             val eligibleOrders = orders.filter { order ->
@@ -322,15 +323,38 @@ class OrderRepository private constructor(
                 val finalLat = custLat ?: -7.7956
                 val finalLng = custLng ?: 110.3695
 
-                val therapistLoc = therapistRepository.therapistProfile.value
-                val preferredTherapistId = (orderMap["preferred_therapist_id"] as? String) ?: ""
-                val isRepeatOrder = (orderMap["is_repeat_order"] as? Boolean) == true || preferredTherapistId.isNotBlank()
+                val prefTherapistRegex = Regex("\\[PREFERRED_THERAPIST:(.*?)\\]")
+                val prefTherapistMatch = prefTherapistRegex.find(rawAddress)
+                val rawPrefTherapist = (orderMap["preferred_therapist_id"] as? String)
+                    ?: prefTherapistMatch?.groupValues?.getOrNull(1)
+                    ?: (orderMap["therapist_id"] as? String)
+                    ?: ""
+                val preferredTherapistId = rawPrefTherapist.trim()
+                val isRepeatOrder = (orderMap["is_repeat_order"] as? Boolean) == true ||
+                        rawAddress.contains("[REPEAT_ORDER:true]") ||
+                        preferredTherapistId.isNotBlank()
+
+                // Clean address from tags
+                if (prefTherapistMatch != null) {
+                    cleanAddress = cleanAddress.replace(prefTherapistMatch.value, "").trim()
+                }
+                cleanAddress = cleanAddress.replace("[REPEAT_ORDER:true]", "").trim()
 
                 // If this order is specifically requested for another therapist, skip it
-                if (preferredTherapistId.isNotBlank() && preferredTherapistId != therapistLoc.id &&
-                    !therapistLoc.id.contains(preferredTherapistId, ignoreCase = true) &&
-                    !preferredTherapistId.contains(therapistLoc.id, ignoreCase = true)) {
-                    return@withContext
+                if (preferredTherapistId.isNotBlank()) {
+                    var cleanMyPhone = therapistLoc.phone.replace("[^0-9]".toRegex(), "")
+                    if (cleanMyPhone.startsWith("0")) cleanMyPhone = "62" + cleanMyPhone.substring(1)
+                    var cleanPref = preferredTherapistId.replace("[^0-9]".toRegex(), "")
+                    if (cleanPref.startsWith("0")) cleanPref = "62" + cleanPref.substring(1)
+
+                    val isMatch = preferredTherapistId.equals(therapistLoc.id, ignoreCase = true) ||
+                            (cleanPref.isNotBlank() && cleanPref == cleanMyPhone) ||
+                            therapistLoc.id.contains(preferredTherapistId, ignoreCase = true) ||
+                            preferredTherapistId.contains(therapistLoc.id, ignoreCase = true)
+
+                    if (!isMatch) {
+                        return@withContext
+                    }
                 }
 
                 val orderGenderPref = (orderMap["gender_preference"] as? String) ?: "Bebas"
