@@ -9,6 +9,7 @@ import com.massago.mitra.data.model.Order
 import com.massago.mitra.data.model.OrderStatus
 import com.massago.mitra.data.model.PaymentMethod
 import com.massago.mitra.data.model.PredefinedServices
+import com.massago.mitra.data.model.ServicePackage
 import com.massago.mitra.data.network.SupabaseClient
 import com.massago.mitra.data.network.SupabaseConfig
 import kotlinx.coroutines.CoroutineScope
@@ -86,38 +87,46 @@ class OrderRepository private constructor(
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val profile = therapistRepository.therapistProfile.value
-                val rows = SupabaseClient.instance.fetchTherapistOrders(profile.id, profile.phone)
+                val therapistId = profile.id.ifBlank { prefs?.getString("THERAPIST_ID", "") ?: "" }
+                val therapistPhone = profile.phone.ifBlank { prefs?.getString("THERAPIST_PHONE", "") ?: "" }
+                val rows = SupabaseClient.instance.fetchTherapistOrders(therapistId, therapistPhone)
                 if (rows.isNotEmpty()) {
                     val mapped = rows.mapNotNull { row ->
                         try {
                             val id = row["id"] as? String ?: return@mapNotNull null
                             val statusStr = row["status"] as? String ?: "COMPLETED"
-                            val srvName = row["service_name"] as? String ?: "Pijat Tradisional"
+                            val srvName = row["service_name"] as? String ?: "Pijat Tradisional Jawa"
                             val duration = (row["duration_minutes"] as? Number)?.toInt() ?: 90
-                            val totalPrice = (row["total_price"] as? Number)?.toLong() ?: 150000L
+                            val totalPrice = (row["total_price"] as? Number)?.toLong() ?: 180000L
                             val rawAddress = row["address"] as? String ?: "Lokasi Pelanggan"
                             val custName = row["customer_name"] as? String ?: "Pelanggan MassaGo"
                             val custPhone = row["customer_phone"] as? String ?: ""
+                            val createdAt = (row["created_at"] as? Number)?.toLong() ?: System.currentTimeMillis()
 
                             val orderStatus = when (statusStr) {
                                 "COMPLETED", "FINISHED" -> OrderStatus.REVIEW_SUBMITTED
                                 "CANCELLED" -> OrderStatus.COMPLETED_PAYMENT
                                 "IN_SERVICE", "TREATMENT_IN_PROGRESS" -> OrderStatus.TREATMENT_IN_PROGRESS
-                                "ARRIVED" -> OrderStatus.ARRIVED_AT_LOCATION
-                                "ACCEPTED" -> OrderStatus.ACCEPTED_ON_THE_WAY
+                                "ARRIVED", "ARRIVED_AT_LOCATION" -> OrderStatus.ARRIVED_AT_LOCATION
+                                "ACCEPTED", "ACCEPTED_ON_THE_WAY" -> OrderStatus.ACCEPTED_ON_THE_WAY
                                 else -> OrderStatus.INCOMING
                             }
 
-                            val matchedService = PredefinedServices.ALL_SERVICES.find {
-                                it.name.contains(srvName, ignoreCase = true)
-                            } ?: PredefinedServices.ALL_SERVICES[0]
-
-                            val netEarnings = (totalPrice * 0.80).toLong()
-                            val platformFee = (totalPrice * 0.20).toLong()
+                            val customServicePackage = ServicePackage(
+                                id = "pkg-$id",
+                                name = srvName,
+                                category = "Pijat Tradisional",
+                                durationMinutes = duration,
+                                basePrice = totalPrice,
+                                therapistCommissionRate = 0.80,
+                                description = "Layanan pemijatan profesional MassaGo",
+                                requiredEquipment = listOf("Minyak Terapi", "Kain Bersih"),
+                                iconName = "spa"
+                            )
 
                             Order(
                                 id = id,
-                                servicePackage = matchedService,
+                                servicePackage = customServicePackage,
                                 client = ClientInfo(
                                     id = "CLI-" + id.takeLast(4),
                                     name = custName,
@@ -129,7 +138,10 @@ class OrderRepository private constructor(
                                     travelEstimateMinutes = 10
                                 ),
                                 paymentMethod = PaymentMethod.CASH,
-                                status = orderStatus
+                                status = orderStatus,
+                                travelAllowance = 0L,
+                                tipAmount = 0L,
+                                createdAtMillis = createdAt
                             )
                         } catch (_: Exception) {
                             null
@@ -137,7 +149,7 @@ class OrderRepository private constructor(
                     }
 
                     if (mapped.isNotEmpty()) {
-                        val combined = (mapped + _orderHistory.value).distinctBy { it.id }
+                        val combined = (mapped + _orderHistory.value).distinctBy { it.id }.sortedByDescending { it.createdAtMillis }
                         _orderHistory.value = combined
                         persistOrderHistory(combined)
                     }

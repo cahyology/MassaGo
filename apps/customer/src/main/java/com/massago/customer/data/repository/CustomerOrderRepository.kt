@@ -91,26 +91,29 @@ class CustomerOrderRepository private constructor(
                 val customerId = profile.id.ifBlank {
                     prefs?.getString("USER_ID", "") ?: ""
                 }
+                val therapistsMap = SupabaseCustomerClient.instance.fetchTherapistsMap()
                 val rows = SupabaseCustomerClient.instance.fetchCustomerOrders(phone, customerId)
                 if (rows.isNotEmpty()) {
                     val mapped = rows.mapNotNull { row ->
                         try {
                             val id = row["id"] as? String ?: return@mapNotNull null
                             val statusStr = row["status"] as? String ?: "COMPLETED"
-                            val srvName = row["service_name"] as? String ?: "Pijat Tradisional"
+                            val srvName = row["service_name"] as? String ?: "Pijat Tradisional Jawa"
                             val duration = (row["duration_minutes"] as? Number)?.toInt() ?: 90
-                            val totalPrice = (row["total_price"] as? Number)?.toLong() ?: 150000L
+                            val totalPrice = (row["total_price"] as? Number)?.toLong() ?: 180000L
                             val rawAddress = row["address"] as? String ?: "Lokasi Pelanggan"
-                            val therapistName = row["therapist_name"] as? String ?: "Terapis Pilihan"
-                            val therapistPhone = row["therapist_phone"] as? String ?: ""
-                            val therapistId = row["therapist_id"] as? String ?: "TRP-1"
+                            val therapistId = row["therapist_id"] as? String ?: ""
+                            val therapistName = therapistsMap[therapistId]
+                                ?: (row["therapist_name"] as? String)
+                                ?: if (therapistId.isNotBlank()) "Mitra $therapistId" else "Terapis Pilihan"
+                            val createdAt = (row["created_at"] as? Number)?.toLong() ?: System.currentTimeMillis()
 
                             val orderStatus = when (statusStr) {
                                 "COMPLETED", "FINISHED" -> CustomerOrderStatus.ORDER_RATED
                                 "CANCELLED" -> CustomerOrderStatus.CANCELLED
                                 "IN_SERVICE", "TREATMENT_IN_PROGRESS" -> CustomerOrderStatus.TREATMENT_IN_PROGRESS
-                                "ARRIVED" -> CustomerOrderStatus.THERAPIST_ARRIVED
-                                "ACCEPTED" -> CustomerOrderStatus.THERAPIST_ON_THE_WAY
+                                "ARRIVED", "ARRIVED_AT_LOCATION" -> CustomerOrderStatus.THERAPIST_ARRIVED
+                                "ACCEPTED", "ACCEPTED_ON_THE_WAY" -> CustomerOrderStatus.THERAPIST_ON_THE_WAY
                                 else -> CustomerOrderStatus.SEARCHING_THERAPIST
                             }
 
@@ -119,8 +122,8 @@ class CustomerOrderRepository private constructor(
                                     id = "srv-$id",
                                     name = srvName,
                                     category = "Pijat",
-                                    shortDescription = "",
-                                    fullDescription = "",
+                                    shortDescription = "Layanan pemijatan profesional MassaGo",
+                                    fullDescription = "Layanan pemijatan profesional MassaGo",
                                     benefits = emptyList(),
                                     durations = listOf(DurationOption(duration, totalPrice)),
                                     iconEmoji = "💆"
@@ -129,10 +132,10 @@ class CustomerOrderRepository private constructor(
                             val therapist = TherapistItem(
                                 id = therapistId,
                                 name = therapistName,
-                                gender = "Wanita",
-                                rating = 4.9,
-                                reviewCount = 120,
-                                ordersCompleted = 150,
+                                gender = "Terapis",
+                                rating = 5.0,
+                                reviewCount = 25,
+                                ordersCompleted = 50,
                                 distanceKm = 2.4,
                                 etaMinutes = 10,
                                 certifications = listOf("BNSP Certified", "Traditional Massage Master"),
@@ -147,7 +150,12 @@ class CustomerOrderRepository private constructor(
                                 status = orderStatus,
                                 assignedTherapist = therapist,
                                 basePrice = totalPrice,
-                                paymentMethod = CustomerPaymentMethod.PIJATIN_PAY
+                                travelFee = 0L,
+                                hygieneKitFee = 0L,
+                                discountAmount = 0L,
+                                tipAmount = 0L,
+                                paymentMethod = CustomerPaymentMethod.PIJATIN_PAY,
+                                createdAtMillis = createdAt
                             )
                         } catch (_: Exception) {
                             null
@@ -155,7 +163,7 @@ class CustomerOrderRepository private constructor(
                     }
 
                     if (mapped.isNotEmpty()) {
-                        val combined = (mapped + _orderHistory.value).distinctBy { it.id }
+                        val combined = (mapped + _orderHistory.value).distinctBy { it.id }.sortedByDescending { it.createdAtMillis }
                         _orderHistory.value = combined
                         persistOrderHistory(combined)
                     }

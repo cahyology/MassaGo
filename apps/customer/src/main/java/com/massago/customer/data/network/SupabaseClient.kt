@@ -695,6 +695,37 @@ class SupabaseCustomerClient(
     }
 
     /**
+     * Fetch therapists map (ID -> Name, Phone -> Name) from Supabase
+     */
+    suspend fun fetchTherapistsMap(): Map<String, String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/therapists?select=id,name,phone")
+                .get()
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val json = response.body?.string() ?: return@withContext emptyMap()
+                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                val list: List<Map<String, Any>> = gson.fromJson(json, listType) ?: emptyList()
+                val map = mutableMapOf<String, String>()
+                list.forEach { item ->
+                    val id = item["id"] as? String ?: ""
+                    val name = item["name"] as? String ?: ""
+                    val phone = item["phone"] as? String ?: ""
+                    if (id.isNotBlank() && name.isNotBlank()) map[id] = name
+                    if (phone.isNotBlank() && name.isNotBlank()) map[phone] = name
+                }
+                map
+            } else {
+                emptyMap()
+            }
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    /**
      * Fetch order history for customer from Supabase
      */
     suspend fun fetchCustomerOrders(phone: String, customerId: String = ""): List<Map<String, Any>> = withContext(Dispatchers.IO) {
@@ -703,15 +734,17 @@ class SupabaseCustomerClient(
             if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
             else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+            val plusPhone = if (cleanPhone.startsWith("62")) "+$cleanPhone" else "+62$cleanPhone"
+            val raw8Phone = if (cleanPhone.startsWith("62")) cleanPhone.substring(2) else cleanPhone
 
             val query = if (cleanPhone.isNotBlank() && customerId.isNotBlank()) {
-                "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone,customer_id.eq.$customerId)"
+                "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone,customer_phone.eq.$plusPhone,customer_phone.eq.$raw8Phone,customer_id.eq.$customerId)"
             } else if (cleanPhone.isNotBlank()) {
-                "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone)"
+                "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone,customer_phone.eq.$plusPhone,customer_phone.eq.$raw8Phone)"
             } else if (customerId.isNotBlank()) {
                 "customer_id=eq.$customerId"
             } else {
-                "limit=20"
+                "limit=50"
             }
 
             val url = "$baseUrl/rest/v1/orders?$query&order=created_at.desc&limit=50"
