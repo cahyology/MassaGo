@@ -268,7 +268,7 @@ const MapInner = dynamic(
               therapist.latitude || -7.7956,
               therapist.longitude || 110.3695,
             ];
-            const st = therapist.duty_status || (therapist.is_online ? 'ONLINE' : 'OFFLINE');
+            const st = computeTherapistEffectiveStatus(therapist, orders);
 
             return (
               <Marker
@@ -303,13 +303,13 @@ const MapInner = dynamic(
                           st === 'ONLINE'
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : st === 'ON_DUTY_BUSY'
-                            ? 'text-amber-600 dark:text-amber-400'
+                            ? 'text-amber-600 dark:text-amber-400 font-bold'
                             : 'text-slate-500'
                         }
                       >
-                        {st}
+                        {st === 'ON_DUTY_BUSY' ? 'BERTUGAS (Menuju Lokasi / Sedang Melayani)' : st}
                       </strong>
-                      {!therapist.is_online && st !== 'ON_DUTY_BUSY' && (
+                      {st === 'OFFLINE' && (
                         <span className="block text-[10px] text-slate-500 italic mt-0.5">
                           (Titik GPS Terakhir Tersimpan)
                         </span>
@@ -367,7 +367,7 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
       const activeOrd = activeOrdersWithRoutes[0];
       return extractCustomerCoords(activeOrd);
     }
-    const onlineTherapist = therapists.find((t) => t.is_online && t.latitude && t.longitude);
+    const onlineTherapist = therapists.find((t) => (t.is_online || t.duty_status === 'ONLINE' || t.duty_status === 'ON_DUTY_BUSY') && t.latitude && t.longitude);
     if (onlineTherapist) {
       return [onlineTherapist.latitude, onlineTherapist.longitude];
     }
@@ -381,19 +381,17 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
       t.id.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
+    const st = computeTherapistEffectiveStatus(t, orders);
     if (filterStatus === 'ALL') return true;
-    if (filterStatus === 'ONLINE') return t.duty_status === 'ONLINE' || t.is_online;
-    if (filterStatus === 'BUSY') return t.duty_status === 'ON_DUTY_BUSY';
-    if (filterStatus === 'OFFLINE')
-      return t.duty_status === 'OFFLINE' || (!t.is_online && t.duty_status !== 'ON_DUTY_BUSY');
+    if (filterStatus === 'ONLINE') return st === 'ONLINE';
+    if (filterStatus === 'BUSY') return st === 'ON_DUTY_BUSY';
+    if (filterStatus === 'OFFLINE') return st === 'OFFLINE';
     return true;
   });
 
-  const onlineCount = therapists.filter((t) => t.is_online || t.duty_status === 'ONLINE').length;
-  const busyCount = therapists.filter((t) => t.duty_status === 'ON_DUTY_BUSY').length;
-  const offlineCount = therapists.filter(
-    (t) => !t.is_online && t.duty_status !== 'ON_DUTY_BUSY'
-  ).length;
+  const onlineCount = therapists.filter((t) => computeTherapistEffectiveStatus(t, orders) === 'ONLINE').length;
+  const busyCount = therapists.filter((t) => computeTherapistEffectiveStatus(t, orders) === 'ON_DUTY_BUSY').length;
+  const offlineCount = therapists.filter((t) => computeTherapistEffectiveStatus(t, orders) === 'OFFLINE').length;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-4 overflow-hidden">
@@ -508,19 +506,19 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
 
               <Badge
                 variant={
-                  selectedTherapist.duty_status === 'ONLINE'
+                  computeTherapistEffectiveStatus(selectedTherapist, orders) === 'ONLINE'
                     ? 'emerald'
-                    : selectedTherapist.duty_status === 'ON_DUTY_BUSY'
+                    : computeTherapistEffectiveStatus(selectedTherapist, orders) === 'ON_DUTY_BUSY'
                     ? 'amber'
                     : 'slate'
                 }
                 size="sm"
-                pulse={selectedTherapist.duty_status === 'ONLINE'}
+                pulse={computeTherapistEffectiveStatus(selectedTherapist, orders) === 'ONLINE' || computeTherapistEffectiveStatus(selectedTherapist, orders) === 'ON_DUTY_BUSY'}
               >
-                {selectedTherapist.duty_status === 'ONLINE'
-                  ? 'Online'
-                  : selectedTherapist.duty_status === 'ON_DUTY_BUSY'
-                  ? 'Bertugas'
+                {computeTherapistEffectiveStatus(selectedTherapist, orders) === 'ONLINE'
+                  ? 'Online (Siap Menerima Order)'
+                  : computeTherapistEffectiveStatus(selectedTherapist, orders) === 'ON_DUTY_BUSY'
+                  ? 'Bertugas (Menuju Lokasi / Sedang Melayani)'
                   : 'Offline (Last GPS)'}
               </Badge>
             </div>
@@ -569,7 +567,7 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                     {selectedTherapist.latitude?.toFixed(4)}, {selectedTherapist.longitude?.toFixed(4)}
                   </span>
                 </div>
-                {!selectedTherapist.is_online && selectedTherapist.duty_status !== 'ON_DUTY_BUSY' && (
+                {computeTherapistEffectiveStatus(selectedTherapist, orders) === 'OFFLINE' && (
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
                     <Clock className="w-3 h-3 text-slate-400" />
                     <span>Terakhir aktif tersimpan di database Supabase</span>

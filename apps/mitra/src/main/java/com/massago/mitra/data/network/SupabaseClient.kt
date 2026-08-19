@@ -73,17 +73,19 @@ class SupabaseClient(
     }
 
     /**
-     * Update Duty Status of Therapist explicitly
+     * Update Duty Status of Therapist explicitly (ONLINE, ON_DUTY_BUSY, OFFLINE)
      */
     suspend fun updateDutyStatus(
         therapistId: String,
-        isOnline: Boolean
+        isOnline: Boolean,
+        dutyStatus: String = if (isOnline) "ONLINE" else "OFFLINE"
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             if (therapistId.isBlank()) return@withContext false
+            val effectiveOnline = isOnline || (dutyStatus == "ON_DUTY_BUSY" || dutyStatus == "ONLINE")
             val bodyJson = JsonObject().apply {
-                addProperty("is_online", isOnline)
-                addProperty("duty_status", if (isOnline) "ONLINE" else "OFFLINE")
+                addProperty("is_online", effectiveOnline)
+                addProperty("duty_status", dutyStatus)
             }.toString()
 
             var clean = therapistId.replace("[^0-9]".toRegex(), "")
@@ -117,15 +119,17 @@ class SupabaseClient(
         therapistId: String,
         latitude: Double,
         longitude: Double,
-        isOnline: Boolean
+        isOnline: Boolean,
+        dutyStatus: String = if (isOnline) "ONLINE" else "OFFLINE"
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             if (therapistId.isBlank()) return@withContext false
+            val effectiveOnline = isOnline || (dutyStatus == "ON_DUTY_BUSY" || dutyStatus == "ONLINE")
             val bodyJson = JsonObject().apply {
                 addProperty("latitude", latitude)
                 addProperty("longitude", longitude)
-                addProperty("is_online", isOnline)
-                addProperty("duty_status", if (isOnline) "ONLINE" else "OFFLINE")
+                addProperty("is_online", effectiveOnline)
+                addProperty("duty_status", dutyStatus)
             }.toString()
 
             var clean = therapistId.replace("[^0-9]".toRegex(), "")

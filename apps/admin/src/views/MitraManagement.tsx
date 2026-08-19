@@ -200,8 +200,8 @@ export const MitraManagement: React.FC<MitraManagementProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {filteredTherapists.map((therapist) => {
-                    const isOnline = therapist.duty_status === 'ONLINE' || therapist.is_online;
                     const isBusy = therapist.duty_status === 'ON_DUTY_BUSY';
+                    const isOnline = therapist.duty_status === 'ONLINE' || (therapist.is_online && !isBusy);
 
                     return (
                       <tr key={therapist.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
@@ -253,11 +253,11 @@ export const MitraManagement: React.FC<MitraManagementProps> = ({
 
                         <td className="py-3.5 px-4">
                           <Badge
-                            variant={isOnline ? 'emerald' : isBusy ? 'amber' : 'slate'}
+                            variant={isBusy ? 'amber' : isOnline ? 'emerald' : 'slate'}
                             size="sm"
-                            pulse={isOnline}
+                            pulse={isOnline || isBusy}
                           >
-                            {isOnline ? 'Online' : isBusy ? 'Bertugas' : 'Offline'}
+                            {isBusy ? 'Bertugas' : isOnline ? 'Online' : 'Offline'}
                           </Badge>
                         </td>
 

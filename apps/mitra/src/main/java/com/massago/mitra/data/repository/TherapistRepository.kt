@@ -310,7 +310,8 @@ class TherapistRepository private constructor() {
             if (identifier.isNotBlank()) {
                 SupabaseClient.instance.updateDutyStatus(
                     therapistId = identifier,
-                    isOnline = (status == DutyStatus.ONLINE)
+                    isOnline = (status == DutyStatus.ONLINE || status == DutyStatus.ON_DUTY_BUSY),
+                    dutyStatus = status.name
                 )
             }
         }
