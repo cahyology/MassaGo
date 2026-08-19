@@ -364,6 +364,8 @@ fun OrderTrackingScreen(
                         )
                     }
 
+                    val isSearchingTherapist = (order.status == CustomerOrderStatus.SEARCHING_THERAPIST || order.assignedTherapist == null)
+
                     Column(modifier = Modifier.fillMaxSize()) {
                         CustomerMapTracker(
                             modifier = Modifier
@@ -371,7 +373,8 @@ fun OrderTrackingScreen(
                                 .fillMaxWidth(),
                             etaMinutes = order.assignedTherapist?.etaMinutes ?: 10,
                             customerLocation = custPos,
-                            therapistLocation = therapistPos
+                            therapistLocation = therapistPos,
+                            isSearching = isSearchingTherapist
                         )
 
                         // Bottom Card with Therapist Info

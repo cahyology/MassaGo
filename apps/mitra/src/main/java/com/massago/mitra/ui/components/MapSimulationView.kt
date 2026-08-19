@@ -42,6 +42,7 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -71,7 +72,7 @@ fun MapSimulationView(
     isOnline: Boolean = true,
     activeOrder: Order? = null,
     radiusKm: Int = 10,
-    mitraLocation: LatLng = LatLng(-6.2088, 106.8456)
+    mitraLocation: LatLng = LatLng(-7.7956, 110.3695)
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -79,8 +80,42 @@ fun MapSimulationView(
 
     var lockedMitraGps by remember { mutableStateOf(mitraLocation) }
 
+    val customerLocation = remember(activeOrder) {
+        if (activeOrder != null && activeOrder.client.latitude != 0.0) {
+            LatLng(activeOrder.client.latitude, activeOrder.client.longitude)
+        } else {
+            LatLng(-7.7956, 110.3695)
+        }
+    }
+
+    // Anchor therapist close to customer if GPS is default or far away (> 30km)
+    val effectiveMitraGps = remember(lockedMitraGps, customerLocation, activeOrder?.id) {
+        if (activeOrder != null) {
+            val dLat = Math.toRadians(customerLocation.latitude - lockedMitraGps.latitude)
+            val dLng = Math.toRadians(customerLocation.longitude - lockedMitraGps.longitude)
+            val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(Math.toRadians(lockedMitraGps.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            val distKm = 6371.0 * c
+            if (distKm > 30.0) {
+                LatLng(customerLocation.latitude - 0.008, customerLocation.longitude - 0.006)
+            } else {
+                lockedMitraGps
+            }
+        } else {
+            lockedMitraGps
+        }
+    }
+
+    LaunchedEffect(effectiveMitraGps) {
+        if (activeOrder != null) {
+            lockedMitraGps = effectiveMitraGps
+        }
+    }
+
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(mitraLocation, 15.5f)
+        position = CameraPosition.fromLatLngZoom(effectiveMitraGps, 15.5f)
     }
 
     // Auto-center and lock on device real GPS on start
@@ -90,7 +125,6 @@ fun MapSimulationView(
                 if (loc != null) {
                     val userGps = LatLng(loc.latitude, loc.longitude)
                     lockedMitraGps = userGps
-                    cameraPositionState.position = CameraPosition.fromLatLngZoom(userGps, 16f)
                 }
             }
         } catch (e: Exception) {
@@ -98,36 +132,44 @@ fun MapSimulationView(
         }
     }
 
-    val customerLocation = remember(activeOrder, lockedMitraGps) {
-        if (activeOrder != null) {
-            LatLng(activeOrder.client.latitude, activeOrder.client.longitude)
-        } else {
-            LatLng(lockedMitraGps.latitude + 0.005, lockedMitraGps.longitude + 0.005)
+    LaunchedEffect(customerLocation, effectiveMitraGps, activeOrder?.id) {
+        try {
+            if (activeOrder != null) {
+                val bounds = LatLngBounds.builder()
+                    .include(customerLocation)
+                    .include(effectiveMitraGps)
+                    .build()
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 120))
+            } else {
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(effectiveMitraGps, 15.5f))
+            }
+        } catch (_: Exception) {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(customerLocation, 15f))
         }
     }
 
     // Real driving route, accurate road distance and traffic duration
-    var routeInfo by remember(customerLocation, activeOrder?.id) {
-        val dLat = Math.toRadians(customerLocation.latitude - lockedMitraGps.latitude)
-        val dLng = Math.toRadians(customerLocation.longitude - lockedMitraGps.longitude)
+    var routeInfo by remember(customerLocation, effectiveMitraGps, activeOrder?.id) {
+        val dLat = Math.toRadians(customerLocation.latitude - effectiveMitraGps.latitude)
+        val dLng = Math.toRadians(customerLocation.longitude - effectiveMitraGps.longitude)
         val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lockedMitraGps.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
+                Math.cos(Math.toRadians(effectiveMitraGps.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
                 Math.sin(dLng / 2) * Math.sin(dLng / 2)
         val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
         val initialDist = (6371.0 * c * 1.25 * 10).toInt() / 10.0
 
         mutableStateOf(
             DrivingRouteInfo(
-                points = listOf(lockedMitraGps, customerLocation),
+                points = listOf(effectiveMitraGps, customerLocation),
                 distanceKm = initialDist,
                 durationMinutes = (initialDist * 2.5).toInt().coerceAtLeast(1)
             )
         )
     }
 
-    LaunchedEffect(customerLocation, activeOrder?.id) {
+    LaunchedEffect(customerLocation, effectiveMitraGps, activeOrder?.id) {
         if (activeOrder != null) {
-            val info = GoogleDirectionsHelper.getDrivingRouteInfo(lockedMitraGps, customerLocation)
+            val info = GoogleDirectionsHelper.getDrivingRouteInfo(effectiveMitraGps, customerLocation)
             routeInfo = info
         }
     }

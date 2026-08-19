@@ -49,6 +49,6 @@ data class TherapistProfile(
     val todayOrdersCount: Int = 0,
     val dailyTargetOrders: Int = 5,
     val dailyTargetBonus: Long = 50000L,
-    val latitude: Double = -6.2088,
-    val longitude: Double = 106.8456
+    val latitude: Double = -7.7956,
+    val longitude: Double = 110.3695
 )

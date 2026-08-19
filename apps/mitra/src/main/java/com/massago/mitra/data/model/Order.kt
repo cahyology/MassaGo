@@ -34,8 +34,8 @@ data class ClientInfo(
     val addressNotes: String,
     val distanceKm: Double,
     val travelEstimateMinutes: Int,
-    val latitude: Double = -6.2088,
-    val longitude: Double = 106.8456
+    val latitude: Double = -7.7956,
+    val longitude: Double = 110.3695
 )
 
 data class Order(

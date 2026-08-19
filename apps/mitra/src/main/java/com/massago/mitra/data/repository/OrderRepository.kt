@@ -83,8 +83,8 @@ class OrderRepository private constructor(
                         custLat = latStr.toDoubleOrNull() ?: custLat
                         custLng = lngStr.toDoubleOrNull() ?: custLng
                     }
-                    val finalLat = custLat ?: -6.2088
-                    val finalLng = custLng ?: 106.8456
+                    val finalLat = custLat ?: -7.7956
+                    val finalLng = custLng ?: 110.3695
 
                     val matchedService = PredefinedServices.ALL_SERVICES.find {
                         it.name.contains(srvName, ignoreCase = true)
@@ -214,8 +214,8 @@ class OrderRepository private constructor(
                     cleanAddress = cleanAddress.replace(noteMatch.value, "").trim()
                 }
 
-                val finalLat = custLat ?: -6.2088
-                val finalLng = custLng ?: 106.8456
+                val finalLat = custLat ?: -7.7956
+                val finalLng = custLng ?: 110.3695
 
                 val therapistLoc = therapistRepository.therapistProfile.value
                 val orderGenderPref = (orderMap["gender_preference"] as? String) ?: "Bebas"
