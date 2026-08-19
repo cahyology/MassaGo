@@ -274,12 +274,12 @@ fun CustomerNavigation(
             composable(
                 route = CustomerScreen.Checkout.route,
                 arguments = listOf(
-                    navArgument("serviceId") { type = NavType.StringType },
-                    navArgument("duration") { type = NavType.IntType },
-                    navArgument("aromaId") { type = NavType.StringType },
-                    navArgument("focusAreas") { type = NavType.StringType },
-                    navArgument("pressure") { type = NavType.StringType },
-                    navArgument("gender") { type = NavType.StringType }
+                    navArgument("serviceId") { type = NavType.StringType; defaultValue = "SRV-TRAD" },
+                    navArgument("duration") { type = NavType.IntType; defaultValue = 90 },
+                    navArgument("aromaId") { type = NavType.StringType; defaultValue = "aroma-olive" },
+                    navArgument("focusAreas") { type = NavType.StringType; defaultValue = "Pundak" },
+                    navArgument("pressure") { type = NavType.StringType; defaultValue = "MEDIUM" },
+                    navArgument("gender") { type = NavType.StringType; defaultValue = "Bebas" }
                 )
             ) { backStackEntry ->
                 val serviceId = backStackEntry.arguments?.getString("serviceId") ?: "SRV-TRAD"
@@ -287,7 +287,7 @@ fun CustomerNavigation(
                 val rawAromaId = backStackEntry.arguments?.getString("aromaId") ?: "aroma-olive"
                 val rawFocusAreas = backStackEntry.arguments?.getString("focusAreas") ?: "Pundak"
                 val pressure = backStackEntry.arguments?.getString("pressure") ?: "MEDIUM"
-                val rawGender = backStackEntry.arguments?.getString("gender") ?: "Bebas (Siapa Saja)"
+                val rawGender = backStackEntry.arguments?.getString("gender") ?: "Bebas"
 
                 val aromaId = try { java.net.URLDecoder.decode(rawAromaId, "UTF-8") } catch (_: Exception) { rawAromaId }
                 val focusAreas = try { java.net.URLDecoder.decode(rawFocusAreas, "UTF-8") } catch (_: Exception) { rawFocusAreas }

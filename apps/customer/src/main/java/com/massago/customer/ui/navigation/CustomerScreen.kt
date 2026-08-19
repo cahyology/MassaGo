@@ -20,7 +20,7 @@ sealed class CustomerScreen(val route: String, val title: String = "", val icon:
     object Detail : CustomerScreen("detail/{serviceId}") {
         fun createRoute(serviceId: String) = "detail/$serviceId"
     }
-    object Checkout : CustomerScreen("checkout/{serviceId}/{duration}/{aromaId}/{focusAreas}/{pressure}/{gender}") {
+    object Checkout : CustomerScreen("checkout?serviceId={serviceId}&duration={duration}&aromaId={aromaId}&focusAreas={focusAreas}&pressure={pressure}&gender={gender}") {
         fun createRoute(
             serviceId: String,
             duration: Int,
@@ -32,7 +32,7 @@ sealed class CustomerScreen(val route: String, val title: String = "", val icon:
             val encFocus = java.net.URLEncoder.encode(focusAreas.ifBlank { "Semua" }, "UTF-8")
             val encGender = java.net.URLEncoder.encode(gender.ifBlank { "Bebas" }, "UTF-8")
             val encAroma = java.net.URLEncoder.encode(aromaId.ifBlank { "aroma-olive" }, "UTF-8")
-            return "checkout/$serviceId/$duration/$encAroma/$encFocus/$pressure/$encGender"
+            return "checkout?serviceId=$serviceId&duration=$duration&aromaId=$encAroma&focusAreas=$encFocus&pressure=$pressure&gender=$encGender"
         }
     }
     object Tracking : CustomerScreen("tracking", "Tracking")
