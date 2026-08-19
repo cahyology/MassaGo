@@ -28,7 +28,12 @@ sealed class CustomerScreen(val route: String, val title: String = "", val icon:
             focusAreas: String,
             pressure: String,
             gender: String
-        ) = "checkout/$serviceId/$duration/$aromaId/$focusAreas/$pressure/$gender"
+        ): String {
+            val encFocus = java.net.URLEncoder.encode(focusAreas.ifBlank { "Semua" }, "UTF-8")
+            val encGender = java.net.URLEncoder.encode(gender.ifBlank { "Bebas" }, "UTF-8")
+            val encAroma = java.net.URLEncoder.encode(aromaId.ifBlank { "aroma-olive" }, "UTF-8")
+            return "checkout/$serviceId/$duration/$encAroma/$encFocus/$pressure/$encGender"
+        }
     }
     object Tracking : CustomerScreen("tracking", "Tracking")
     object Chat : CustomerScreen("chat", "Chat")

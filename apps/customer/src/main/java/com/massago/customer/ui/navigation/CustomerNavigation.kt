@@ -284,10 +284,14 @@ fun CustomerNavigation(
             ) { backStackEntry ->
                 val serviceId = backStackEntry.arguments?.getString("serviceId") ?: "SRV-TRAD"
                 val duration = backStackEntry.arguments?.getInt("duration") ?: 90
-                val aromaId = backStackEntry.arguments?.getString("aromaId") ?: "aroma-olive"
-                val focusAreas = backStackEntry.arguments?.getString("focusAreas") ?: "Pundak"
+                val rawAromaId = backStackEntry.arguments?.getString("aromaId") ?: "aroma-olive"
+                val rawFocusAreas = backStackEntry.arguments?.getString("focusAreas") ?: "Pundak"
                 val pressure = backStackEntry.arguments?.getString("pressure") ?: "MEDIUM"
-                val gender = backStackEntry.arguments?.getString("gender") ?: "Bebas"
+                val rawGender = backStackEntry.arguments?.getString("gender") ?: "Bebas (Siapa Saja)"
+
+                val aromaId = try { java.net.URLDecoder.decode(rawAromaId, "UTF-8") } catch (_: Exception) { rawAromaId }
+                val focusAreas = try { java.net.URLDecoder.decode(rawFocusAreas, "UTF-8") } catch (_: Exception) { rawFocusAreas }
+                val gender = try { java.net.URLDecoder.decode(rawGender, "UTF-8") } catch (_: Exception) { rawGender }
 
                 CheckoutScreen(
                     serviceId = serviceId,
