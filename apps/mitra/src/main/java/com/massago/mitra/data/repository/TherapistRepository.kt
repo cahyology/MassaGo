@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class TherapistRepository private constructor() {
 
@@ -86,7 +87,7 @@ class TherapistRepository private constructor() {
                         val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
                         val req = okhttp3.Request.Builder()
-                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications")
+                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications,preferred_client_gender")
                             .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
                             .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
                             .build()
@@ -111,6 +112,7 @@ class TherapistRepository private constructor() {
                                 val orders = obj.get("orders_completed")?.asInt ?: 0
                                 val remoteLat = obj.get("latitude")?.asDouble ?: _therapistProfile.value.latitude
                                 val remoteLng = obj.get("longitude")?.asDouble ?: _therapistProfile.value.longitude
+                                val remoteGenderPref = obj.get("preferred_client_gender")?.asString ?: _therapistProfile.value.preferredClientGender
 
                                 // Single Active Device Auto-Kick Check
                                 if (context != null) {
@@ -171,6 +173,7 @@ class TherapistRepository private constructor() {
                                         mainBalance = remoteWallet,
                                         rating = rating,
                                         totalOrdersCompleted = orders,
+                                        preferredClientGender = remoteGenderPref,
                                         latitude = if (curr.latitude != 0.0 && curr.latitude != -7.7956) curr.latitude else remoteLat,
                                         longitude = if (curr.longitude != 0.0 && curr.longitude != 110.3695) curr.longitude else remoteLng
                                     )
@@ -332,22 +335,34 @@ class TherapistRepository private constructor() {
     }
 
     fun setDutyStatus(status: DutyStatus) {
-        val current = _therapistProfile.value
-        // If not verified, prevent turning ONLINE
-        if (status == DutyStatus.ONLINE && !current.isVerified) {
-            return
-        }
+        val currentId = _therapistProfile.value.id
+        val currentPhone = _therapistProfile.value.phone
+        val isOnlineBool = (status == DutyStatus.ONLINE)
 
         prefs?.edit()?.putString("PREF_DUTY_STATUS", status.name)?.apply()
         _therapistProfile.update { it.copy(dutyStatus = status) }
-        val identifier = current.id.ifBlank { current.phone }
-        scope.launch {
-            if (identifier.isNotBlank()) {
-                SupabaseClient.instance.updateDutyStatus(
-                    therapistId = identifier,
-                    isOnline = (status == DutyStatus.ONLINE || status == DutyStatus.ON_DUTY_BUSY),
-                    dutyStatus = status.name
-                )
+
+        if (currentId.isNotBlank() || currentPhone.isNotBlank()) {
+            scope.launch {
+                try {
+                    val updateJson = com.google.gson.JsonObject().apply {
+                        addProperty("is_online", isOnlineBool)
+                        addProperty("duty_status", status.name)
+                    }.toString()
+
+                    var clean = (currentPhone.ifEmpty { currentId }).replace("[^0-9]".toRegex(), "")
+                    if (clean.startsWith("0")) clean = "62" + clean.substring(1)
+                    val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+
+                    val req = okhttp3.Request.Builder()
+                        .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)")
+                        .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
+                        .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                        .build()
+
+                    okhttp3.OkHttpClient().newCall(req).execute()
+                } catch (_: Exception) {}
             }
         }
     }
@@ -356,10 +371,12 @@ class TherapistRepository private constructor() {
         return (prefs?.getString("PREF_DUTY_STATUS", "OFFLINE") == "ONLINE")
     }
 
-    fun toggleAutoAccept(enabled: Boolean) {
+    fun setAutoAcceptOrders(enabled: Boolean) {
         prefs?.edit()?.putBoolean("PREF_AUTO_ACCEPT", enabled)?.apply()
         _therapistProfile.update { it.copy(autoAcceptOrders = enabled) }
     }
+
+    fun toggleAutoAccept(enabled: Boolean) = setAutoAcceptOrders(enabled)
 
     fun setMaxRadiusKm(radius: Int) {
         prefs?.edit()?.putInt("PREF_MAX_RADIUS", radius)?.apply()
@@ -369,6 +386,25 @@ class TherapistRepository private constructor() {
     fun setPreferredClientGender(gender: String) {
         prefs?.edit()?.putString("PREF_GENDER_PREF", gender)?.apply()
         _therapistProfile.update { it.copy(preferredClientGender = gender) }
+        val tId = _therapistProfile.value.id
+        if (tId.isNotBlank()) {
+            scope.launch {
+                try {
+                    val updateJson = com.google.gson.JsonObject().apply {
+                        addProperty("preferred_client_gender", gender)
+                    }.toString()
+                    val req = okhttp3.Request.Builder()
+                        .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?id=eq.$tId")
+                        .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
+                        .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                        .build()
+                    okhttp3.OkHttpClient().newCall(req).execute()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     fun toggleServiceSpecialty(serviceName: String, isEnabled: Boolean) {
@@ -390,35 +426,65 @@ class TherapistRepository private constructor() {
             val newMainBalance = current.mainBalance + netAmount
             val newTodayEarnings = current.todayEarnings + netAmount
             val newOrdersCount = if (isBonus) current.todayOrdersCount else current.todayOrdersCount + 1
-            current.copy(
+            val updated = current.copy(
                 mainBalance = newMainBalance,
                 todayEarnings = newTodayEarnings,
                 todayOrdersCount = newOrdersCount,
                 totalOrdersCompleted = current.totalOrdersCompleted + (if (isBonus) 0 else 1)
             )
+            syncBalancesToSupabase(updated.mainBalance, updated.depositBalance)
+            updated
         }
     }
 
     fun deductDeposit(amount: Long) {
         _therapistProfile.update { current ->
-            current.copy(depositBalance = (current.depositBalance - amount).coerceAtLeast(0L))
+            val updated = current.copy(depositBalance = (current.depositBalance - amount).coerceAtLeast(0L))
+            syncBalancesToSupabase(updated.mainBalance, updated.depositBalance)
+            updated
         }
     }
 
     fun addDeposit(amount: Long) {
         _therapistProfile.update { current ->
-            current.copy(depositBalance = current.depositBalance + amount)
+            val updated = current.copy(depositBalance = current.depositBalance + amount)
+            syncBalancesToSupabase(updated.mainBalance, updated.depositBalance)
+            updated
         }
     }
 
     fun withdrawMainBalance(amount: Long): Boolean {
         if (_therapistProfile.value.mainBalance >= amount) {
             _therapistProfile.update { current ->
-                current.copy(mainBalance = current.mainBalance - amount)
+                val updated = current.copy(mainBalance = current.mainBalance - amount)
+                syncBalancesToSupabase(updated.mainBalance, updated.depositBalance)
+                updated
             }
             return true
         }
         return false
+    }
+
+    private fun syncBalancesToSupabase(mainBalance: Long, depositBalance: Long) {
+        val tId = _therapistProfile.value.id
+        if (tId.isBlank()) return
+        scope.launch {
+            try {
+                val updateJson = com.google.gson.JsonObject().apply {
+                    addProperty("wallet_balance", mainBalance)
+                    addProperty("deposit_balance", depositBalance)
+                }.toString()
+                val req = okhttp3.Request.Builder()
+                    .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?id=eq.$tId")
+                    .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
+                    .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
+                    .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                    .build()
+                okhttp3.OkHttpClient().newCall(req).execute()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun updateCurrentLocation(lat: Double, lng: Double) {

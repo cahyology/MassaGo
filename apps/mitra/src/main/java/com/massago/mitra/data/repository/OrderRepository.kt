@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
 
 class OrderRepository private constructor(
@@ -818,6 +819,30 @@ class OrderRepository private constructor(
     }
 
     fun finishOrderAndReturnHome() {
+        val current = _activeOrder.value
+        if (current != null) {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    SupabaseClient.instance.updateOrderStatus(current.id, "COMPLETED")
+                    val profile = therapistRepository.therapistProfile.value
+                    if (profile.id.isNotBlank()) {
+                        val newCount = profile.totalOrdersCompleted + 1
+                        val updateJson = com.google.gson.JsonObject().apply {
+                            addProperty("orders_completed", newCount)
+                        }.toString()
+                        val req = okhttp3.Request.Builder()
+                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?id=eq.${profile.id}")
+                            .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
+                            .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
+                            .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                            .build()
+                        okhttp3.OkHttpClient().newCall(req).execute()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
         prefs?.edit()?.remove("ACTIVE_ORDER_ID")?.apply()
         _activeOrder.value = null
         therapistRepository.setDutyStatus(DutyStatus.ONLINE)

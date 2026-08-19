@@ -54,6 +54,7 @@ class CustomerUserRepository private constructor() {
         }
         fetchSavedAddressesFromSupabase()
         fetchFavoriteTherapistsFromSupabase()
+        fetchCustomerProfileFromSupabase()
     }
 
     private fun loadPersistedProfile(): CustomerProfile {
@@ -178,6 +179,49 @@ class CustomerUserRepository private constructor() {
         }
     }
 
+    fun fetchCustomerProfileFromSupabase() {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val phone = _profile.value.phone
+                if (phone.isBlank()) return@launch
+                var clean = phone.replace("[^0-9]".toRegex(), "")
+                if (clean.startsWith("0")) clean = "62" + clean.substring(1)
+                val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+
+                val req = Request.Builder()
+                    .url("${SupabaseConfig.URL}/rest/v1/customers?or=(phone.eq.$clean,phone.eq.$localPhone)&select=*")
+                    .header("apikey", SupabaseConfig.ANON_KEY)
+                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                    .build()
+
+                val res = OkHttpClient().newCall(req).execute()
+                val bodyStr = res.body?.string() ?: "[]"
+
+                if (res.isSuccessful && bodyStr.startsWith("[{")) {
+                    val arr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
+                    if (arr.size() > 0) {
+                        val obj = arr[0].asJsonObject
+                        val id = obj.get("id")?.asString ?: _profile.value.id
+                        val name = obj.get("name")?.asString ?: _profile.value.name
+                        val email = obj.get("email")?.asString ?: _profile.value.email
+                        val wallet = obj.get("wallet_balance")?.asLong ?: _profile.value.walletBalance
+
+                        _profile.update { current ->
+                            val updated = current.copy(
+                                id = id,
+                                name = name,
+                                email = email,
+                                walletBalance = wallet
+                            )
+                            persistProfile(updated)
+                            updated
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     fun updateProfileInfo(name: String, phone: String, email: String = "", id: String = "") {
         _profile.update { current ->
             val updated = current.copy(
@@ -191,6 +235,7 @@ class CustomerUserRepository private constructor() {
         }
         fetchSavedAddressesFromSupabase()
         fetchFavoriteTherapistsFromSupabase()
+        fetchCustomerProfileFromSupabase()
         CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
     }
 
@@ -284,6 +329,7 @@ class CustomerUserRepository private constructor() {
         _profile.update { current ->
             val updated = current.copy(walletBalance = current.walletBalance + amount)
             persistProfile(updated)
+            syncCustomerWalletToSupabase(updated.walletBalance)
             updated
         }
     }
@@ -293,11 +339,33 @@ class CustomerUserRepository private constructor() {
             _profile.update { current ->
                 val updated = current.copy(walletBalance = current.walletBalance - amount)
                 persistProfile(updated)
+                syncCustomerWalletToSupabase(updated.walletBalance)
                 updated
             }
             return true
         }
         return false
+    }
+
+    private fun syncCustomerWalletToSupabase(newBalance: Long) {
+        val phone = _profile.value.phone
+        if (phone.isBlank()) return
+        coroutineScope.launch {
+            try {
+                var clean = phone.replace("[^0-9]".toRegex(), "")
+                if (clean.startsWith("0")) clean = "62" + clean.substring(1)
+                val updateJson = com.google.gson.JsonObject().apply {
+                    addProperty("wallet_balance", newBalance)
+                }.toString()
+                val req = Request.Builder()
+                    .url("${SupabaseConfig.URL}/rest/v1/customers?phone=eq.$clean")
+                    .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                    .header("apikey", SupabaseConfig.ANON_KEY)
+                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                    .build()
+                OkHttpClient().newCall(req).execute()
+            } catch (_: Exception) {}
+        }
     }
 
     private fun loadPersistedFavorites(): List<FavoriteTherapist> {
