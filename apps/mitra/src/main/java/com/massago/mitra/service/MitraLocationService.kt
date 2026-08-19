@@ -102,14 +102,18 @@ class MitraLocationService : Service() {
         }
     }
 
+    private var isExplicitStop = false
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
+                isExplicitStop = false
                 startForeground(NOTIFICATION_ID, buildForegroundNotification())
                 requestLocationUpdates()
                 com.massago.mitra.data.repository.OrderRepository.instance.startRealtimeOrderPolling()
             }
             ACTION_STOP -> {
+                isExplicitStop = true
                 com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
                 stopLocationUpdates()
                 val currentProfile = therapistRepository.therapistProfile.value
@@ -126,6 +130,23 @@ class MitraLocationService : Service() {
             }
         }
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Keep foreground service alive and listening for orders even when app is swiped away from recent apps
+        val currentProfile = therapistRepository.therapistProfile.value
+        if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.ONLINE) {
+            val restartServiceIntent = Intent(applicationContext, MitraLocationService::class.java).apply {
+                setPackage(packageName)
+                action = ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(restartServiceIntent)
+            } else {
+                startService(restartServiceIntent)
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -193,16 +214,18 @@ class MitraLocationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
-        stopLocationUpdates()
-        val currentProfile = therapistRepository.therapistProfile.value
-        CoroutineScope(Dispatchers.IO).launch {
-            supabaseClient.updateLocationAndDuty(
-                therapistId = currentProfile.id,
-                latitude = currentProfile.latitude,
-                longitude = currentProfile.longitude,
-                isOnline = false
-            )
+        if (isExplicitStop) {
+            com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
+            stopLocationUpdates()
+            val currentProfile = therapistRepository.therapistProfile.value
+            CoroutineScope(Dispatchers.IO).launch {
+                supabaseClient.updateLocationAndDuty(
+                    therapistId = currentProfile.id,
+                    latitude = currentProfile.latitude,
+                    longitude = currentProfile.longitude,
+                    isOnline = false
+                )
+            }
         }
         serviceScope.cancel()
     }

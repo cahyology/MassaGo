@@ -33,12 +33,15 @@ class TherapistRepository private constructor() {
     private val initialVerified = !initialBadge.contains("Menunggu") && !initialBadge.contains("Review")
     private val initialLat = prefs?.getString("PREF_LAST_LAT", "-7.7956")?.toDoubleOrNull() ?: -7.7956
     private val initialLng = prefs?.getString("PREF_LAST_LNG", "110.3695")?.toDoubleOrNull() ?: 110.3695
+    private val initialDutyStr = prefs?.getString("PREF_DUTY_STATUS", "OFFLINE") ?: "OFFLINE"
+    private val initialDuty = if (initialDutyStr == "ONLINE" && initialVerified) DutyStatus.ONLINE else DutyStatus.OFFLINE
 
     private val _therapistProfile = MutableStateFlow(
         TherapistProfile(
             id = initialId,
             name = initialName,
             phone = initialPhone,
+            dutyStatus = initialDuty,
             tierBadge = initialBadge,
             isVerified = initialVerified,
             autoAcceptOrders = initialAutoAccept,
@@ -55,6 +58,12 @@ class TherapistRepository private constructor() {
 
     init {
         fetchPlatformCommission()
+        if (initialDuty == DutyStatus.ONLINE) {
+            try {
+                com.massago.mitra.service.MitraLocationService.start(MassaGoApp.instance)
+                com.massago.mitra.data.repository.OrderRepository.instance.startRealtimeOrderPolling()
+            } catch (_: Exception) {}
+        }
         if (initialPhone.isNotBlank() || initialId.isNotBlank()) {
             fetchTherapistProfileFromSupabase(initialPhone.ifEmpty { initialId })
         }
@@ -293,6 +302,7 @@ class TherapistRepository private constructor() {
             return
         }
 
+        prefs?.edit()?.putString("PREF_DUTY_STATUS", status.name)?.apply()
         _therapistProfile.update { it.copy(dutyStatus = status) }
         val identifier = current.id.ifBlank { current.phone }
         scope.launch {
