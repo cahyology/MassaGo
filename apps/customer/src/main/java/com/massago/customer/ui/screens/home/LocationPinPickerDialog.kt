@@ -101,12 +101,20 @@ fun LocationPinPickerDialog(
     // Initial GPS alignment with device real location
     LaunchedEffect(Unit) {
         try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) {
-                    val userGps = LatLng(loc.latitude, loc.longitude)
-                    cameraPositionState.position = CameraPosition.fromLatLngZoom(userGps, 17f)
+            fusedLocationClient.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        val userGps = LatLng(loc.latitude, loc.longitude)
+                        cameraPositionState.position = CameraPosition.fromLatLngZoom(userGps, 17f)
+                    } else {
+                        fusedLocationClient.lastLocation.addOnSuccessListener { cached ->
+                            if (cached != null) {
+                                val userGps = LatLng(cached.latitude, cached.longitude)
+                                cameraPositionState.position = CameraPosition.fromLatLngZoom(userGps, 17f)
+                            }
+                        }
+                    }
                 }
-            }
         } catch (e: Exception) {
             // fallback
         }
@@ -125,14 +133,18 @@ fun LocationPinPickerDialog(
                             val addr = addresses.firstOrNull()
                             if (addr != null) {
                                 val full = addr.getAddressLine(0) ?: "${addr.thoroughfare ?: ""}, ${addr.subLocality ?: ""}, ${addr.locality ?: ""}"
-                                val title = when {
-                                    !addr.featureName.isNullOrBlank() && addr.featureName != addr.thoroughfare -> addr.featureName
+                                val placeName = when {
+                                    !addr.featureName.isNullOrBlank() && addr.featureName != addr.thoroughfare && !addr.featureName.matches("^\\d+$".toRegex()) -> addr.featureName
                                     !addr.thoroughfare.isNullOrBlank() -> "${addr.thoroughfare} ${addr.subThoroughfare ?: ""}".trim()
                                     !addr.subLocality.isNullOrBlank() -> addr.subLocality
-                                    else -> "Titik Jemput di Peta"
+                                    !addr.locality.isNullOrBlank() -> addr.locality
+                                    else -> "Titik Pilihan Peta"
                                 }
-                                locationTitle = title
+                                locationTitle = placeName
                                 locationAddress = full
+                                if (locationNote.isBlank() && (!addr.thoroughfare.isNullOrBlank() || !addr.featureName.isNullOrBlank())) {
+                                    locationNote = "Patokan: $placeName"
+                                }
                             }
                             isGeocodingLoading = false
                         }
@@ -142,14 +154,18 @@ fun LocationPinPickerDialog(
                         val addr = addresses?.firstOrNull()
                         if (addr != null) {
                             val full = addr.getAddressLine(0) ?: "${addr.thoroughfare ?: ""}, ${addr.subLocality ?: ""}, ${addr.locality ?: ""}"
-                            val title = when {
-                                !addr.featureName.isNullOrBlank() && addr.featureName != addr.thoroughfare -> addr.featureName
+                            val placeName = when {
+                                !addr.featureName.isNullOrBlank() && addr.featureName != addr.thoroughfare && !addr.featureName.matches("^\\d+$".toRegex()) -> addr.featureName
                                 !addr.thoroughfare.isNullOrBlank() -> "${addr.thoroughfare} ${addr.subThoroughfare ?: ""}".trim()
                                 !addr.subLocality.isNullOrBlank() -> addr.subLocality
-                                else -> "Titik Jemput di Peta"
+                                !addr.locality.isNullOrBlank() -> addr.locality
+                                else -> "Titik Pilihan Peta"
                             }
-                            locationTitle = title
+                            locationTitle = placeName
                             locationAddress = full
+                            if (locationNote.isBlank() && (!addr.thoroughfare.isNullOrBlank() || !addr.featureName.isNullOrBlank())) {
+                                locationNote = "Patokan: $placeName"
+                            }
                         }
                         isGeocodingLoading = false
                     }

@@ -132,19 +132,23 @@ fun MapSimulationView(
         }
     }
 
-    LaunchedEffect(customerLocation, effectiveMitraGps, activeOrder?.id) {
-        try {
-            if (activeOrder != null) {
+    var hasInitiallyFramedOrder by remember(activeOrder?.id) { mutableStateOf(false) }
+
+    LaunchedEffect(activeOrder?.id) {
+        if (activeOrder != null && !hasInitiallyFramedOrder) {
+            try {
                 val bounds = LatLngBounds.builder()
                     .include(customerLocation)
                     .include(effectiveMitraGps)
                     .build()
                 cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 120))
-            } else {
-                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(effectiveMitraGps, 15.5f))
+                hasInitiallyFramedOrder = true
+            } catch (_: Exception) {
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(customerLocation, 15.5f))
             }
-        } catch (_: Exception) {
-            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(customerLocation, 15f))
+        } else if (activeOrder == null) {
+            hasInitiallyFramedOrder = false
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(effectiveMitraGps, 15.5f))
         }
     }
 
@@ -216,17 +220,13 @@ fun MapSimulationView(
                         durationMinutes = curEta
                     )
 
-                    // Smoothly animate camera following the motorcycle
-                    try {
-                        cameraPositionState.animate(CameraUpdateFactory.newLatLng(wp))
-                    } catch (_: Exception) {}
-
                     // Broadcast live GPS update to Supabase so customer app moves in real-time too
                     withContext(Dispatchers.IO) {
                         try {
                             val profile = TherapistRepository.instance.therapistProfile.value
+                            val targetId = profile.id.ifBlank { profile.phone }
                             SupabaseClient.instance.updateLocationOnly(
-                                therapistId = profile.id,
+                                therapistId = targetId,
                                 latitude = wp.latitude,
                                 longitude = wp.longitude
                             )
@@ -239,7 +239,7 @@ fun MapSimulationView(
                         } catch (_: Exception) {}
                     }
 
-                    delay(1500)
+                    delay(2000)
                 }
             }
         }

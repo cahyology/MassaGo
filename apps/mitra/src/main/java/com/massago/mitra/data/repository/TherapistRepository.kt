@@ -31,6 +31,8 @@ class TherapistRepository private constructor() {
     private val initialPhone = prefs?.getString("PREF_THERAPIST_PHONE", "") ?: ""
     private val initialBadge = prefs?.getString("PREF_TIER_BADGE", "Mitra Baru (Menunggu Verifikasi)") ?: "Mitra Baru (Menunggu Verifikasi)"
     private val initialVerified = !initialBadge.contains("Menunggu") && !initialBadge.contains("Review")
+    private val initialLat = prefs?.getString("PREF_LAST_LAT", "-7.7956")?.toDoubleOrNull() ?: -7.7956
+    private val initialLng = prefs?.getString("PREF_LAST_LNG", "110.3695")?.toDoubleOrNull() ?: 110.3695
 
     private val _therapistProfile = MutableStateFlow(
         TherapistProfile(
@@ -41,7 +43,9 @@ class TherapistRepository private constructor() {
             isVerified = initialVerified,
             autoAcceptOrders = initialAutoAccept,
             maxRadiusKm = initialRadius,
-            preferredClientGender = initialGenderPref
+            preferredClientGender = initialGenderPref,
+            latitude = initialLat,
+            longitude = initialLng
         )
     )
     val therapistProfile: StateFlow<TherapistProfile> = _therapistProfile.asStateFlow()
@@ -367,6 +371,10 @@ class TherapistRepository private constructor() {
     }
 
     fun updateCurrentLocation(lat: Double, lng: Double) {
+        prefs?.edit()
+            ?.putString("PREF_LAST_LAT", lat.toString())
+            ?.putString("PREF_LAST_LNG", lng.toString())
+            ?.apply()
         _therapistProfile.update { current ->
             current.copy(
                 latitude = lat,

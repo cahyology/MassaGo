@@ -71,6 +71,7 @@ import com.massago.mitra.ui.theme.AmberGold
 import com.massago.mitra.ui.theme.EmeraldDark
 import com.massago.mitra.ui.theme.EmeraldLight
 import com.massago.mitra.ui.theme.EmeraldPrimary
+import com.massago.mitra.ui.theme.TextPrimary
 import com.massago.mitra.ui.theme.TextSecondary
 import com.massago.mitra.util.NotificationSoundHelper
 import java.text.NumberFormat
@@ -237,6 +238,68 @@ fun HomeScreen(
                     viewModel.setDutyStatus(newStatus)
                 }
             )
+
+            // Quick Auto-Accept Order Switch Card
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 3.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                shadowElevation = 0.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (therapistProfile.autoAcceptOrders) EmeraldPrimary.copy(alpha = 0.15f) else Color(0xFFF1F5F9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ElectricBolt,
+                                contentDescription = null,
+                                tint = if (therapistProfile.autoAcceptOrders) EmeraldPrimary else TextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Terima Order Otomatis",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (therapistProfile.autoAcceptOrders) "Orderan masuk langsung diterima otomatis" else "Konfirmasi manual saat order masuk",
+                                fontSize = 9.5.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = therapistProfile.autoAcceptOrders,
+                        onCheckedChange = { isChecked ->
+                            viewModel.toggleAutoAccept(isChecked)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = EmeraldPrimary,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color(0xFFCBD5E1)
+                        )
+                    )
+                }
+            }
         }
 
         if (showKycWarningDialog) {
@@ -279,8 +342,8 @@ fun HomeScreen(
             shape = CircleShape,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = if (isSummaryExpanded) 280.dp else 190.dp)
-                .size(46.dp)
+                .padding(end = 16.dp, bottom = if (isSummaryExpanded) 220.dp else 115.dp)
+                .size(44.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.MyLocation,
@@ -294,8 +357,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .padding(bottom = 70.dp) // clearance for bottom navigation
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .padding(bottom = 8.dp) // tight clearance for bottom navigation
         ) {
             // Expanded Daily Summary (Optional on demand)
             if (isSummaryExpanded) {
