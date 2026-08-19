@@ -724,6 +724,97 @@ class SupabaseCustomerClient(
             emptyList()
         }
     }
+
+    /**
+     * Fetch saved addresses for customer from Supabase customer_addresses table
+     */
+    suspend fun fetchCustomerAddresses(phone: String): List<Map<String, Any>> = withContext(Dispatchers.IO) {
+        try {
+            var cleanPhone = phone.replace("[^0-9]".toRegex(), "")
+            if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+            else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+            val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+
+            if (cleanPhone.isBlank()) return@withContext emptyList()
+
+            val url = "$baseUrl/rest/v1/customer_addresses?or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone)&order=created_at.desc"
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val json = response.body?.string() ?: return@withContext emptyList()
+                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                gson.fromJson(json, listType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    /**
+     * Save/Upsert a customer address in Supabase customer_addresses table
+     */
+    suspend fun saveCustomerAddress(
+        id: String,
+        customerPhone: String,
+        title: String,
+        fullAddress: String,
+        note: String,
+        tag: String = "Rumah",
+        latitude: Double,
+        longitude: Double,
+        isPrimary: Boolean = false
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            var cleanPhone = customerPhone.replace("[^0-9]".toRegex(), "")
+            if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+            else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+
+            val payload = JsonObject().apply {
+                addProperty("id", id)
+                addProperty("customer_phone", cleanPhone)
+                addProperty("title", title)
+                addProperty("full_address", fullAddress)
+                addProperty("note", note)
+                addProperty("tag", tag)
+                addProperty("latitude", latitude)
+                addProperty("longitude", longitude)
+                addProperty("is_primary", isPrimary)
+            }
+
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/customer_addresses")
+                .header("Prefer", "resolution=merge-duplicates")
+                .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
+                .build()
+
+            val response = client.newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Delete customer address in Supabase
+     */
+    suspend fun deleteCustomerAddress(addressId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/customer_addresses?id=eq.$addressId")
+                .delete()
+                .build()
+
+            val response = client.newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }
 
 

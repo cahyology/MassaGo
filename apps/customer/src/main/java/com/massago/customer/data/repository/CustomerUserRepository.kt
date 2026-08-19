@@ -7,14 +7,25 @@ import com.massago.customer.CustomerApp
 import com.massago.customer.data.model.CustomerLocation
 import com.massago.customer.data.model.CustomerProfile
 import com.massago.customer.data.model.SavedAddress
+import com.massago.customer.data.network.SupabaseConfig
+import com.massago.customer.data.network.SupabaseCustomerClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class CustomerUserRepository private constructor() {
 
     private val gson = Gson()
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     private val prefs by lazy {
         try {
@@ -29,6 +40,10 @@ class CustomerUserRepository private constructor() {
 
     private val _currentLocation = MutableStateFlow(loadPersistedLocation())
     val currentLocation: StateFlow<CustomerLocation> = _currentLocation.asStateFlow()
+
+    init {
+        fetchSavedAddressesFromSupabase()
+    }
 
     private fun loadPersistedProfile(): CustomerProfile {
         val base = CustomerProfile()
@@ -95,6 +110,63 @@ class CustomerUserRepository private constructor() {
         }
     }
 
+    fun fetchSavedAddressesFromSupabase() {
+        coroutineScope.launch {
+            try {
+                val currentPhone = _profile.value.phone
+                if (currentPhone.isBlank()) return@launch
+
+                val rows = SupabaseCustomerClient.instance.fetchCustomerAddresses(currentPhone)
+                if (rows.isNotEmpty()) {
+                    val mapped = rows.mapNotNull { row ->
+                        try {
+                            val id = row["id"] as? String ?: return@mapNotNull null
+                            val title = row["title"] as? String ?: "Alamat"
+                            val fullAddress = row["full_address"] as? String ?: ""
+                            val note = row["note"] as? String ?: ""
+                            val tag = row["tag"] as? String ?: "Rumah"
+                            val lat = (row["latitude"] as? Number)?.toDouble() ?: -7.7956
+                            val lng = (row["longitude"] as? Number)?.toDouble() ?: 110.3695
+                            val isPrimary = row["is_primary"] as? Boolean ?: false
+
+                            val emoji = when (tag.lowercase()) {
+                                "rumah" -> "🏠"
+                                "apartemen" -> "🏢"
+                                "kantor" -> "💼"
+                                "hotel" -> "🏨"
+                                else -> "📍"
+                            }
+
+                            SavedAddress(
+                                id = id,
+                                title = title,
+                                fullAddress = fullAddress,
+                                note = note,
+                                isPrimary = isPrimary,
+                                iconEmoji = emoji,
+                                latitude = lat,
+                                longitude = lng
+                            )
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+
+                    if (mapped.isNotEmpty()) {
+                        _profile.update { current ->
+                            val merged = (mapped + current.savedAddresses).distinctBy { it.id }
+                            val updated = current.copy(savedAddresses = merged)
+                            persistProfile(updated)
+                            updated
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun updateProfileInfo(name: String, phone: String, email: String = "", id: String = "") {
         _profile.update { current ->
             val updated = current.copy(
@@ -106,6 +178,7 @@ class CustomerUserRepository private constructor() {
             persistProfile(updated)
             updated
         }
+        fetchSavedAddressesFromSupabase()
     }
 
     fun setLocation(location: CustomerLocation) {
@@ -133,6 +206,24 @@ class CustomerUserRepository private constructor() {
             updated
         }
         selectAddress(address)
+
+        // Asynchronously save to Supabase Cloud Database
+        coroutineScope.launch {
+            val phone = _profile.value.phone
+            if (phone.isNotBlank()) {
+                SupabaseCustomerClient.instance.saveCustomerAddress(
+                    id = address.id,
+                    customerPhone = phone,
+                    title = address.title,
+                    fullAddress = address.fullAddress,
+                    note = address.note,
+                    tag = address.title,
+                    latitude = address.latitude,
+                    longitude = address.longitude,
+                    isPrimary = address.isPrimary
+                )
+            }
+        }
     }
 
     fun addSavedAddress(address: SavedAddress) {
@@ -142,6 +233,24 @@ class CustomerUserRepository private constructor() {
             persistProfile(updated)
             updated
         }
+
+        // Asynchronously save to Supabase Cloud Database
+        coroutineScope.launch {
+            val phone = _profile.value.phone
+            if (phone.isNotBlank()) {
+                SupabaseCustomerClient.instance.saveCustomerAddress(
+                    id = address.id,
+                    customerPhone = phone,
+                    title = address.title,
+                    fullAddress = address.fullAddress,
+                    note = address.note,
+                    tag = address.title,
+                    latitude = address.latitude,
+                    longitude = address.longitude,
+                    isPrimary = address.isPrimary
+                )
+            }
+        }
     }
 
     fun deleteSavedAddress(addressId: String) {
@@ -150,6 +259,11 @@ class CustomerUserRepository private constructor() {
             val updated = current.copy(savedAddresses = updatedList)
             persistProfile(updated)
             updated
+        }
+
+        // Asynchronously delete from Supabase Cloud Database
+        coroutineScope.launch {
+            SupabaseCustomerClient.instance.deleteCustomerAddress(addressId)
         }
     }
 
@@ -177,7 +291,7 @@ class CustomerUserRepository private constructor() {
         name: String,
         phone: String,
         email: String = ""
-    ): Result<Boolean> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             var cleanPhone = phone.replace("[^0-9]".toRegex(), "")
             if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
@@ -192,14 +306,14 @@ class CustomerUserRepository private constructor() {
                 if (email.isNotBlank()) addProperty("email", email)
             }
 
-            val req = okhttp3.Request.Builder()
-                .url("${com.massago.customer.data.network.SupabaseConfig.URL}/rest/v1/customers?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)")
-                .header("apikey", com.massago.customer.data.network.SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${com.massago.customer.data.network.SupabaseConfig.ANON_KEY}")
-                .patch(okhttp3.RequestBody.create(com.massago.customer.data.network.SupabaseConfig.JSON_MEDIA, payload.toString()))
+            val req = Request.Builder()
+                .url("${SupabaseConfig.URL}/rest/v1/customers?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)")
+                .header("apikey", SupabaseConfig.ANON_KEY)
+                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                .patch(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val client = okhttp3.OkHttpClient()
+            val client = OkHttpClient()
             val res = client.newCall(req).execute()
             if (res.isSuccessful) {
                 updateProfileInfo(name = name, phone = cleanPhone, email = email)

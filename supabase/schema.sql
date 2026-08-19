@@ -18,6 +18,21 @@ CREATE TABLE IF NOT EXISTS customers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 2.0 Tabel Customer Saved Addresses (Alamat Tersimpan Pelanggan)
+CREATE TABLE IF NOT EXISTS customer_addresses (
+    id VARCHAR(50) PRIMARY KEY,
+    customer_phone VARCHAR(20) NOT NULL,
+    customer_id TEXT,
+    title VARCHAR(100) NOT NULL,
+    full_address TEXT NOT NULL,
+    note TEXT,
+    tag VARCHAR(50) DEFAULT 'Rumah',
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    is_primary BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 2.1 Tabel OTP Verifications (Fonnte WhatsApp OTP)
 CREATE TABLE IF NOT EXISTS otp_verifications (
     id SERIAL PRIMARY KEY,
