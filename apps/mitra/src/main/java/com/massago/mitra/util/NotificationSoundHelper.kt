@@ -128,7 +128,7 @@ object NotificationSoundHelper {
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification_stat)
             .setContentTitle(title)
             .setContentText(content)
             .setSubText(subText)
@@ -144,8 +144,12 @@ object NotificationSoundHelper {
             .setVibrate(longArrayOf(0, 500, 200, 500, 200, 600))
             .build()
 
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun startAudioAndVibrationAlert(context: Context) {
@@ -200,7 +204,7 @@ object NotificationSoundHelper {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification_stat)
             .setContentTitle("⚠️ Pesanan Dibatalkan")
             .setContentText("Pesanan dari $clientName telah dibatalkan.")
             .setStyle(NotificationCompat.BigTextStyle().bigText("Pelanggan $clientName telah membatalkan pesanan. Status Anda otomatis kembali Siap Menerima Order (Online)."))
@@ -209,8 +213,12 @@ object NotificationSoundHelper {
             .setContentIntent(pendingIntent)
             .build()
 
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(8822, notification)
+        try {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(8822, notification)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun notifyNewChatMessage(context: Context, senderName: String, messageText: String) {
@@ -226,7 +234,7 @@ object NotificationSoundHelper {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setSmallIcon(R.drawable.ic_notification_stat)
             .setContentTitle("💬 Pesan dari $senderName")
             .setContentText(messageText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -234,8 +242,12 @@ object NotificationSoundHelper {
             .setContentIntent(pendingIntent)
             .build()
 
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(8823, notification)
+        try {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(8823, notification)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun triggerVibrationPulse(context: Context) {

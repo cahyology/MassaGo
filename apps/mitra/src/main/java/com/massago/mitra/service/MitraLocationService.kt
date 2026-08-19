@@ -189,7 +189,7 @@ class MitraLocationService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("MassaGo Mitra — Siap Terima Pesanan")
             .setContentText("GPS & Radar aktif. Menyiarkan koordinat untuk klien terdekat.")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification_stat)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
