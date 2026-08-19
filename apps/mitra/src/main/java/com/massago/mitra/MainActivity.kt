@@ -87,9 +87,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        NotificationSoundHelper.stopIncomingOrderAlert(applicationContext)
-    }
 }

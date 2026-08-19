@@ -378,6 +378,12 @@ class OrderRepository private constructor(
                     } else {
                         _activeOrder.value = incomingOrder
                         _incomingCountdownSeconds.value = 30
+                        try {
+                            com.massago.mitra.util.NotificationSoundHelper.triggerIncomingOrderAlert(
+                                com.massago.mitra.MassaGoApp.instance,
+                                incomingOrder
+                            )
+                        } catch (_: Exception) {}
                         startIncomingOrderCountdown()
                     }
                 }
@@ -405,6 +411,10 @@ class OrderRepository private constructor(
 
     fun acceptOrder() {
         incomingTimeoutJob?.cancel()
+        try {
+            com.massago.mitra.util.NotificationSoundHelper.stopIncomingOrderAlert(com.massago.mitra.MassaGoApp.instance)
+        } catch (_: Exception) {}
+
         val current = _activeOrder.value ?: return
         val updated = current.copy(
             status = OrderStatus.ACCEPTED_ON_THE_WAY,
@@ -461,6 +471,9 @@ class OrderRepository private constructor(
     fun declineOrder(reason: String = "Ditolak oleh mitra") {
         incomingTimeoutJob?.cancel()
         orderStatusMonitorJob?.cancel()
+        try {
+            com.massago.mitra.util.NotificationSoundHelper.stopIncomingOrderAlert(com.massago.mitra.MassaGoApp.instance)
+        } catch (_: Exception) {}
         val current = _activeOrder.value
         if (current != null) {
             dismissedOrderIds.add(current.id)

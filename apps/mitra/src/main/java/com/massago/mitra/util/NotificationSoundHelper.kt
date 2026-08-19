@@ -43,6 +43,7 @@ object NotificationSoundHelper {
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val soundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
@@ -56,6 +57,7 @@ object NotificationSoundHelper {
                 description = "Notifikasi suara dan getaran saat ada pesanan home massage baru"
                 enableLights(true)
                 enableVibration(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 600)
                 setSound(soundUri, audioAttributes)
             }
@@ -108,7 +110,7 @@ object NotificationSoundHelper {
         val formattedEarning = "Rp " + currencyFormat.format(order.therapistNetEarnings)
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -123,17 +125,19 @@ object NotificationSoundHelper {
         val subText = "Tarif: Rp ${currencyFormat.format(order.subtotal)}"
 
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(content)
             .setSubText(subText)
             .setStyle(NotificationCompat.BigTextStyle().bigText("$content\nAlamat: ${order.client.address}\nEstimasi Tempuh: ~${order.client.travelEstimateMinutes} menit"))
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
-            .setOngoing(true)
+            .setOngoing(false)
             .setContentIntent(pendingIntent)
             .setFullScreenIntent(pendingIntent, true)
             .setSound(defaultSoundUri)
