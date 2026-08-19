@@ -41,6 +41,14 @@ class OrderRepository private constructor(
 
     private val gson = Gson()
 
+    private val prefs by lazy {
+        try {
+            com.massago.mitra.MassaGoApp.instance.getSharedPreferences("massago_mitra_order_prefs", android.content.Context.MODE_PRIVATE)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun loadPersistedOrderHistory(): List<Order> {
         val historyJson = prefs?.getString("MITRA_ORDER_HISTORY_JSON", null) ?: return emptyList()
         return try {
@@ -55,7 +63,7 @@ class OrderRepository private constructor(
         prefs?.edit()?.putString("MITRA_ORDER_HISTORY_JSON", gson.toJson(history))?.apply()
     }
 
-    private val _orderHistory = MutableStateFlow<List<Order>>(loadPersistedOrderHistory())
+    private val _orderHistory = MutableStateFlow<List<Order>>(emptyList())
     val orderHistory: StateFlow<List<Order>> = _orderHistory.asStateFlow()
 
     private val _incomingCountdownSeconds = MutableStateFlow(30)
@@ -64,15 +72,12 @@ class OrderRepository private constructor(
     // Blacklist of orders declined/dismissed by this therapist to never receive the same order twice
     private val dismissedOrderIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
-    private val prefs by lazy {
-        try {
-            com.massago.mitra.MassaGoApp.instance.getSharedPreferences("massago_mitra_order_prefs", android.content.Context.MODE_PRIVATE)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     init {
+        try {
+            _orderHistory.value = loadPersistedOrderHistory()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         restoreActiveOrderIfAny()
         fetchOrderHistoryFromSupabase()
     }

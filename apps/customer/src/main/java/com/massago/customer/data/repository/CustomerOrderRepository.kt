@@ -39,6 +39,14 @@ class CustomerOrderRepository private constructor(
 
     private val gson = Gson()
 
+    private val prefs by lazy {
+        try {
+            com.massago.customer.CustomerApp.instance.getSharedPreferences("massago_customer_order_prefs", android.content.Context.MODE_PRIVATE)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun loadPersistedOrderHistory(): List<CustomerOrder> {
         val historyJson = prefs?.getString("CUSTOMER_ORDER_HISTORY_JSON", null) ?: return emptyList()
         return try {
@@ -53,7 +61,7 @@ class CustomerOrderRepository private constructor(
         prefs?.edit()?.putString("CUSTOMER_ORDER_HISTORY_JSON", gson.toJson(history))?.apply()
     }
 
-    private val _orderHistory = MutableStateFlow<List<CustomerOrder>>(loadPersistedOrderHistory())
+    private val _orderHistory = MutableStateFlow<List<CustomerOrder>>(emptyList())
     val orderHistory: StateFlow<List<CustomerOrder>> = _orderHistory.asStateFlow()
 
     private val _availableVouchers = MutableStateFlow<List<PromoVoucher>>(CustomerMockPromos.VOUCHERS)
@@ -62,15 +70,12 @@ class CustomerOrderRepository private constructor(
     private val _serviceCatalog = MutableStateFlow<List<MassageService>>(CustomerPredefinedServices.SERVICES)
     val serviceCatalog: StateFlow<List<MassageService>> = _serviceCatalog.asStateFlow()
 
-    private val prefs by lazy {
-        try {
-            com.massago.customer.CustomerApp.instance.getSharedPreferences("massago_customer_order_prefs", android.content.Context.MODE_PRIVATE)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     init {
+        try {
+            _orderHistory.value = loadPersistedOrderHistory()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         restoreActiveOrderIfAny()
         refreshCatalogAndPromos()
         fetchOrderHistoryFromSupabase()

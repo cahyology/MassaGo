@@ -35,13 +35,19 @@ class CustomerUserRepository private constructor() {
         }
     }
 
-    private val _profile = MutableStateFlow(loadPersistedProfile())
+    private val _profile = MutableStateFlow(CustomerProfile())
     val profile: StateFlow<CustomerProfile> = _profile.asStateFlow()
 
-    private val _currentLocation = MutableStateFlow(loadPersistedLocation())
+    private val _currentLocation = MutableStateFlow(CustomerLocation())
     val currentLocation: StateFlow<CustomerLocation> = _currentLocation.asStateFlow()
 
     init {
+        try {
+            _profile.value = loadPersistedProfile()
+            _currentLocation.value = loadPersistedLocation()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         fetchSavedAddressesFromSupabase()
     }
 
