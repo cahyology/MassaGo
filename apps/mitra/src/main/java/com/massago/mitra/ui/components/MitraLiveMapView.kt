@@ -78,8 +78,6 @@ fun MitraLiveMapView(
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    var lockedMitraGps by remember(mitraLocation) { mutableStateOf(mitraLocation) }
-
     val customerLocation = remember(activeOrder) {
         if (activeOrder != null && activeOrder.client.latitude != 0.0) {
             LatLng(activeOrder.client.latitude, activeOrder.client.longitude)
@@ -88,54 +86,21 @@ fun MitraLiveMapView(
         }
     }
 
-    // Anchor therapist close to customer if GPS is default or far away (> 30km)
-    val effectiveMitraGps = remember(lockedMitraGps, customerLocation, activeOrder?.id) {
-        if (activeOrder != null) {
-            val dLat = Math.toRadians(customerLocation.latitude - lockedMitraGps.latitude)
-            val dLng = Math.toRadians(customerLocation.longitude - lockedMitraGps.longitude)
-            val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(Math.toRadians(lockedMitraGps.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
-                    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-            val distKm = 6371.0 * c
-            if (distKm > 30.0) {
-                LatLng(customerLocation.latitude - 0.008, customerLocation.longitude - 0.006)
-            } else {
-                lockedMitraGps
-            }
-        } else {
-            lockedMitraGps
-        }
-    }
-
-    LaunchedEffect(effectiveMitraGps) {
-        if (activeOrder != null) {
-            lockedMitraGps = effectiveMitraGps
-        }
+    val effectiveMitraGps = if (mitraLocation.latitude != 0.0 && mitraLocation.latitude != -7.7956) {
+        mitraLocation
+    } else {
+        mitraLocation
     }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(effectiveMitraGps, 15.5f)
     }
 
-    // Auto-center and lock on device real GPS on start
-    LaunchedEffect(Unit) {
-        try {
-            fusedLocationClient.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
-                .addOnSuccessListener { loc ->
-                    if (loc != null) {
-                        val userGps = LatLng(loc.latitude, loc.longitude)
-                        lockedMitraGps = userGps
-                    } else {
-                        fusedLocationClient.lastLocation.addOnSuccessListener { cached ->
-                            if (cached != null) {
-                                val userGps = LatLng(cached.latitude, cached.longitude)
-                                lockedMitraGps = userGps
-                            }
-                        }
-                    }
-                }
-        } catch (_: Exception) {}
+    // Auto-center camera when mitraLocation moves
+    LaunchedEffect(effectiveMitraGps) {
+        if (activeOrder == null) {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLng(effectiveMitraGps))
+        }
     }
 
     var hasInitiallyFramedOrder by remember(activeOrder?.id) { mutableStateOf(false) }
@@ -223,14 +188,14 @@ fun MitraLiveMapView(
             // Marker: Lokasi Mitra (Ikon Sepeda Motor Tanpa Background Bulat Saat On The Way)
             if (activeOrder != null && activeOrder.status != OrderStatus.INCOMING) {
                 Marker(
-                    state = MarkerState(position = lockedMitraGps),
+                    state = MarkerState(position = effectiveMitraGps),
                     title = "🛵 Posisi Anda (Mitra)",
                     snippet = "Menuju ke lokasi ${activeOrder.client.name} (${realDistanceKm} km)",
                     icon = yellowMotorIcon
                 )
             } else {
                 Marker(
-                    state = MarkerState(position = lockedMitraGps),
+                    state = MarkerState(position = effectiveMitraGps),
                     title = "🛵 Posisi Anda (Mitra)",
                     snippet = if (isOnline) "Siap Menerima Pesanan" else "Sedang Istirahat"
                 )
@@ -239,7 +204,7 @@ fun MitraLiveMapView(
             // Radius Radar Layanan Terkunci pada Posisi Mitra (Saat Standby)
             if (isOnline && activeOrder == null) {
                 Circle(
-                    center = lockedMitraGps,
+                    center = effectiveMitraGps,
                     radius = (radiusKm * 1000.0),
                     fillColor = EmeraldPrimary.copy(alpha = 0.12f),
                     strokeColor = EmeraldPrimary.copy(alpha = 0.55f),

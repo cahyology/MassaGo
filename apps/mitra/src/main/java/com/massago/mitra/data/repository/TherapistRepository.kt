@@ -136,8 +136,8 @@ class TherapistRepository private constructor() {
                                         mainBalance = remoteWallet,
                                         rating = rating,
                                         totalOrdersCompleted = orders,
-                                        latitude = remoteLat,
-                                        longitude = remoteLng
+                                        latitude = if (curr.latitude != 0.0 && curr.latitude != -7.7956) curr.latitude else remoteLat,
+                                        longitude = if (curr.longitude != 0.0 && curr.longitude != 110.3695) curr.longitude else remoteLng
                                     )
                                 }
                             }

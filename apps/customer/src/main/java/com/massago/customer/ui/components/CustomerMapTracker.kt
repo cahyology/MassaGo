@@ -57,17 +57,9 @@ fun CustomerMapTracker(
     therapistLocation: LatLng = LatLng(-7.8000, 110.3650),
     isSearching: Boolean = false
 ) {
-    // If therapist location is far out (> 35km away, like Jakarta fallback vs actual location), anchor close to customer
     val effectiveTherapistLoc = remember(customerLocation, therapistLocation) {
-        val dLat = Math.toRadians(customerLocation.latitude - therapistLocation.latitude)
-        val dLng = Math.toRadians(customerLocation.longitude - therapistLocation.longitude)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(therapistLocation.latitude)) * Math.cos(Math.toRadians(customerLocation.latitude)) *
-                Math.sin(dLng / 2) * Math.sin(dLng / 2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        val distKm = 6371.0 * c
-        if (distKm > 35.0) {
-            LatLng(customerLocation.latitude - 0.005, customerLocation.longitude - 0.004)
+        if (therapistLocation.latitude != 0.0 && therapistLocation.latitude != -7.8000) {
+            therapistLocation
         } else {
             therapistLocation
         }

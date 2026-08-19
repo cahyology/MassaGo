@@ -476,24 +476,18 @@ class CustomerOrderRepository private constructor(
                                 val rawTLat = (dbTherapist?.get("latitude") as? Number)?.toDouble()
                                 val rawTLng = (dbTherapist?.get("longitude") as? Number)?.toDouble()
 
-                                var finalTLat = rawTLat ?: (custLat - 0.006)
-                                var finalTLng = rawTLng ?: (custLng - 0.005)
+                                val finalTLat = rawTLat ?: (custLat - 0.006)
+                                val finalTLng = rawTLng ?: (custLng - 0.005)
 
-                                var dLat = Math.toRadians(custLat - finalTLat)
-                                var dLng = Math.toRadians(custLng - finalTLng)
-                                var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                                val dLat = Math.toRadians(custLat - finalTLat)
+                                val dLng = Math.toRadians(custLng - finalTLng)
+                                val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                                         Math.cos(Math.toRadians(finalTLat)) * Math.cos(Math.toRadians(custLat)) *
                                         Math.sin(dLng / 2) * Math.sin(dLng / 2)
-                                var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-                                var distKm = (6371.0 * c * 10).toInt() / 10.0
+                                val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                                val distKm = ((6371.0 * c * 10).toInt() / 10.0).coerceAtLeast(0.1)
 
-                                if (distKm > 40.0) {
-                                    finalTLat = custLat - 0.008
-                                    finalTLng = custLng - 0.006
-                                    distKm = 1.2
-                                }
-
-                                val etaMin = (distKm * 2.5).toInt().coerceIn(2, 30)
+                                val etaMin = (distKm * 2.5).toInt().coerceIn(1, 45)
                                 val initials = tName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifEmpty { "BS" }
 
                                 val assigned = TherapistItem(

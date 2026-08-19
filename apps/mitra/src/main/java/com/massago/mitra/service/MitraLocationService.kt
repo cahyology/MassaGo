@@ -76,20 +76,23 @@ class MitraLocationService : Service() {
                     val lng = location.longitude
                     
                     val currentProfile = therapistRepository.therapistProfile.value
-                    if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.OFFLINE || !currentProfile.isVerified) {
+                    if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.OFFLINE && !therapistRepository.isPersistedOnline()) {
                         stopSelf()
                         return
                     }
 
-                    // Update local repository & Supabase Cloud
+                    // Update local repository immediately so UI markers move instantly
                     therapistRepository.updateCurrentLocation(lat, lng)
 
                     serviceScope.launch {
-                        supabaseClient.updateLocationOnly(
-                            therapistId = currentProfile.id,
-                            latitude = lat,
-                            longitude = lng
-                        )
+                        val identifier = currentProfile.id.ifBlank { currentProfile.phone }
+                        if (identifier.isNotBlank()) {
+                            supabaseClient.updateLocationOnly(
+                                therapistId = identifier,
+                                latitude = lat,
+                                longitude = lng
+                            )
+                        }
 
                         // If active order is ACCEPTED_ON_THE_WAY, stream therapist GPS directly to the order in Supabase
                         val activeOrder = com.massago.mitra.data.repository.OrderRepository.instance.activeOrder.value
@@ -118,9 +121,10 @@ class MitraLocationService : Service() {
                 com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
                 stopLocationUpdates()
                 val currentProfile = therapistRepository.therapistProfile.value
+                val identifier = currentProfile.id.ifBlank { currentProfile.phone }
                 CoroutineScope(Dispatchers.IO).launch {
                     supabaseClient.updateLocationAndDuty(
-                        therapistId = currentProfile.id,
+                        therapistId = identifier,
                         latitude = currentProfile.latitude,
                         longitude = currentProfile.longitude,
                         isOnline = false
@@ -137,7 +141,7 @@ class MitraLocationService : Service() {
         super.onTaskRemoved(rootIntent)
         // Keep foreground service alive and listening for orders even when app is swiped away from recent apps
         val currentProfile = therapistRepository.therapistProfile.value
-        if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.ONLINE) {
+        if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.ONLINE || currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.ON_DUTY_BUSY || therapistRepository.isPersistedOnline()) {
             val restartServiceIntent = Intent(applicationContext, MitraLocationService::class.java).apply {
                 setPackage(packageName)
                 action = ACTION_START
@@ -155,10 +159,10 @@ class MitraLocationService : Service() {
         try {
             val locationRequest = LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY,
-                4000L // 4 seconds interval for realtime navigation streaming
+                1500L // 1.5 seconds interval for smooth realtime GPS navigation streaming
             ).apply {
-                setMinUpdateIntervalMillis(3000L)
-                setMinUpdateDistanceMeters(4f) // 4 meters displacement
+                setMinUpdateIntervalMillis(1000L)
+                setMinUpdateDistanceMeters(0f) // continuous displacement streaming
             }.build()
 
             fusedLocationClient.requestLocationUpdates(
