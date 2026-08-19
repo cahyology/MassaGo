@@ -105,7 +105,8 @@ class MitraLocationService : Service() {
     private var isExplicitStop = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action ?: ACTION_START
+        when (action) {
             ACTION_START -> {
                 isExplicitStop = false
                 startForeground(NOTIFICATION_ID, buildForegroundNotification())

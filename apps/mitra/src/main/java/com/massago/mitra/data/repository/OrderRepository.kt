@@ -234,11 +234,16 @@ class OrderRepository private constructor(
     fun startRealtimeOrderPolling() {
         pollingJob?.cancel()
         pollingJob = coroutineScope.launch(Dispatchers.IO) {
-            while (therapistRepository.therapistProfile.value.dutyStatus == DutyStatus.ONLINE) {
-                if (_activeOrder.value == null) {
+            while (true) {
+                val currentDuty = therapistRepository.therapistProfile.value.dutyStatus
+                val isOnline = (currentDuty == DutyStatus.ONLINE) || therapistRepository.isPersistedOnline()
+
+                if (isOnline && _activeOrder.value == null) {
                     checkForRealIncomingOrder()
+                } else if (!isOnline && _activeOrder.value == null) {
+                    break
                 }
-                delay(3000) // Poll Supabase every 3 seconds
+                delay(2000) // Poll Supabase every 2 seconds for ultra-responsive dispatching
             }
         }
     }

@@ -315,6 +315,10 @@ class TherapistRepository private constructor() {
         }
     }
 
+    fun isPersistedOnline(): Boolean {
+        return (prefs?.getString("PREF_DUTY_STATUS", "OFFLINE") == "ONLINE")
+    }
+
     fun toggleAutoAccept(enabled: Boolean) {
         prefs?.edit()?.putBoolean("PREF_AUTO_ACCEPT", enabled)?.apply()
         _therapistProfile.update { it.copy(autoAcceptOrders = enabled) }
