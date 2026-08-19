@@ -255,7 +255,7 @@ class OrderRepository private constructor(
                 } else if (!isOnline && _activeOrder.value == null) {
                     break
                 }
-                delay(2000) // Poll Supabase every 2 seconds for ultra-responsive dispatching
+                delay(1000) // Fast 1-second polling for instant background order detection
             }
         }
     }
@@ -273,13 +273,30 @@ class OrderRepository private constructor(
             val therapistLoc = therapistRepository.therapistProfile.value
             val orders = SupabaseClient.instance.fetchPendingOrders(therapistLoc.id, therapistLoc.phone)
             val now = System.currentTimeMillis()
-            // Exclude orders that have already been declined or handled by this therapist or are stale (> 3 mins old)
+
+            // Exclude orders that have already been declined or handled by this therapist or are stale (> 5 mins old)
             val eligibleOrders = orders.filter { order ->
                 val orderId = order["id"] as? String ?: ""
-                val createdAt = (order["created_at"] as? Number)?.toLong() ?: 0L
-                val isFresh = createdAt == 0L || (now - createdAt) < (180 * 1000)
+                val rawCreatedAt = order["created_at"]
+                val isFresh = if (rawCreatedAt is Number) {
+                    (now - rawCreatedAt.toLong()) < (300 * 1000)
+                } else if (rawCreatedAt is String) {
+                    try {
+                        val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+                            timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        }
+                        val cleanDateStr = rawCreatedAt.take(19)
+                        val date = parser.parse(cleanDateStr)
+                        val orderTime = date?.time ?: now
+                        (now - orderTime) < (300 * 1000)
+                    } catch (_: Exception) {
+                        true
+                    }
+                } else {
+                    true
+                }
+
                 if (!isFresh && orderId.isNotBlank()) {
-                    // Auto-expire stale order in Supabase so it never rings
                     coroutineScope.launch(Dispatchers.IO) {
                         SupabaseClient.instance.declineOrder(orderId)
                     }
@@ -344,11 +361,16 @@ class OrderRepository private constructor(
                 if (preferredTherapistId.isNotBlank()) {
                     var cleanMyPhone = therapistLoc.phone.replace("[^0-9]".toRegex(), "")
                     if (cleanMyPhone.startsWith("0")) cleanMyPhone = "62" + cleanMyPhone.substring(1)
+                    else if (cleanMyPhone.startsWith("8")) cleanMyPhone = "62" + cleanMyPhone
+                    val localMyPhone = if (cleanMyPhone.startsWith("62")) "0" + cleanMyPhone.substring(2) else cleanMyPhone
+
                     var cleanPref = preferredTherapistId.replace("[^0-9]".toRegex(), "")
                     if (cleanPref.startsWith("0")) cleanPref = "62" + cleanPref.substring(1)
+                    else if (cleanPref.startsWith("8")) cleanPref = "62" + cleanPref
+                    val localPref = if (cleanPref.startsWith("62")) "0" + cleanPref.substring(2) else cleanPref
 
                     val isMatch = preferredTherapistId.equals(therapistLoc.id, ignoreCase = true) ||
-                            (cleanPref.isNotBlank() && cleanPref == cleanMyPhone) ||
+                            (cleanPref.isNotBlank() && (cleanPref == cleanMyPhone || localPref == localMyPhone || cleanPref == localMyPhone || localPref == cleanMyPhone)) ||
                             therapistLoc.id.contains(preferredTherapistId, ignoreCase = true) ||
                             preferredTherapistId.contains(therapistLoc.id, ignoreCase = true)
 
@@ -460,7 +482,7 @@ class OrderRepository private constructor(
                         acceptOrder()
                     } else {
                         _activeOrder.value = incomingOrder
-                        _incomingCountdownSeconds.value = 30
+                        _incomingCountdownSeconds.value = 45
                         try {
                             com.massago.mitra.util.NotificationSoundHelper.triggerIncomingOrderAlert(
                                 com.massago.mitra.MassaGoApp.instance,
@@ -479,7 +501,7 @@ class OrderRepository private constructor(
     private fun startIncomingOrderCountdown() {
         incomingTimeoutJob?.cancel()
         incomingTimeoutJob = coroutineScope.launch {
-            for (i in 30 downTo 0) {
+            for (i in 45 downTo 0) {
                 _incomingCountdownSeconds.value = i
                 delay(1000)
                 if (_activeOrder.value?.status != OrderStatus.INCOMING) {

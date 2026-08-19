@@ -25,12 +25,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -107,6 +111,7 @@ fun CustomerHomeScreen(
 
     var showLocationSheet by remember { mutableStateOf(false) }
     var showMapPinPicker by remember { mutableStateOf(false) }
+    var therapistToDelete by remember { mutableStateOf<com.massago.customer.data.repository.FavoriteTherapist?>(null) }
 
     fun detectGpsLocation() {
         try {
@@ -390,7 +395,7 @@ fun CustomerHomeScreen(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "${favoriteTherapists.size} Tersimpan",
+                                text = "${favoriteTherapists.size}/5 Tersimpan",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AmberGold,
                                 fontWeight = FontWeight.Bold
@@ -412,7 +417,10 @@ fun CustomerHomeScreen(
                                     modifier = Modifier.width(260.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(14.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
                                             Box(
                                                 modifier = Modifier
                                                     .size(46.dp)
@@ -453,6 +461,18 @@ fun CustomerHomeScreen(
                                                         color = TextSecondary
                                                     )
                                                 }
+                                            }
+
+                                            IconButton(
+                                                onClick = { therapistToDelete = therapist },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.DeleteOutline,
+                                                    contentDescription = "Hapus Favorit",
+                                                    tint = Color(0xFF94A3B8),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                             }
                                         }
 
@@ -497,6 +517,8 @@ fun CustomerHomeScreen(
                     }
                 }
             }
+
+
 
             // Category Filter Chips
             item {
@@ -619,6 +641,43 @@ fun CustomerHomeScreen(
                 showMapPinPicker = false
             },
             onDismiss = { showMapPinPicker = false }
+        )
+    }
+
+    // Delete Favorite Confirmation Dialog
+    if (therapistToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { therapistToDelete = null },
+            title = {
+                Text(
+                    text = "Hapus Terapis Langganan?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Apakah Anda yakin ingin menghapus ${therapistToDelete?.name} dari daftar terapis langganan Anda?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = therapistToDelete
+                        if (target != null) {
+                            com.massago.customer.data.repository.CustomerUserRepository.instance.removeFavoriteTherapist(target.id)
+                        }
+                        therapistToDelete = null
+                    }
+                ) {
+                    Text(text = "Hapus", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { therapistToDelete = null }) {
+                    Text(text = "Batal", color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
         )
     }
 }

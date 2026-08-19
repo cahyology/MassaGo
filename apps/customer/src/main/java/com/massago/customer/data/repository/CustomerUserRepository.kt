@@ -408,6 +408,10 @@ class CustomerUserRepository private constructor() {
         _favoriteTherapists.update { current ->
             val mutable = current.toMutableList()
             mutable.removeAll { it.id == therapist.id }
+            // Enforce max 5 favorite therapists
+            while (mutable.size >= 5) {
+                mutable.removeAt(mutable.size - 1)
+            }
             mutable.add(0, therapist)
             persistFavorites(mutable)
             mutable
@@ -455,6 +459,30 @@ class CustomerUserRepository private constructor() {
             mutable.removeAll { it.id == therapistId }
             persistFavorites(mutable)
             mutable
+        }
+
+        // Remove from Supabase Cloud reviews table
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                var cleanPhone = _profile.value.phone.replace("[^0-9]".toRegex(), "")
+                if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+                else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+                val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+
+                if (cleanPhone.isNotBlank()) {
+                    val deleteUrl = "${SupabaseConfig.URL}/rest/v1/reviews?reviewer_type=eq.CUSTOMER&or=(reviewer_id.eq.$cleanPhone,reviewer_id.eq.$localPhone)&target_id=eq.$therapistId"
+                    val req = Request.Builder()
+                        .url(deleteUrl)
+                        .header("apikey", SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                        .delete()
+                        .build()
+
+                    OkHttpClient().newCall(req).execute()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

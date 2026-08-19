@@ -1313,6 +1313,153 @@ fun CheckoutScreen(
             }
         }
     }
+
+    // Service & Duration Picker Modal Sheet
+    if (showServicePickerSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showServicePickerSheet = false },
+            sheetState = rememberModalBottomSheetState()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "Pilih Layanan & Durasi",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Pilih jenis perawatan yang sesuai untuk sesi pemijatan Anda.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(380.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(allAvailableServices.size) { idx ->
+                        val srv = allAvailableServices[idx]
+                        val isSelected = srv.id == activeServiceId
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) EmeraldLight.copy(alpha = 0.4f) else Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    activeServiceId = srv.id
+                                    if (srv.durations.none { it.minutes == activeDurationMinutes }) {
+                                        activeDurationMinutes = srv.durations.firstOrNull()?.minutes ?: 90
+                                    }
+                                }
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = srv.iconEmoji, fontSize = 24.sp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = srv.name,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        Text(
+                                            text = srv.shortDescription,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondary,
+                                            fontSize = 11.5.sp,
+                                            maxLines = 2
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = EmeraldPrimary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = "Pilih Durasi:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldDark
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        srv.durations.forEach { dur ->
+                                            val isDurSelected = dur.minutes == activeDurationMinutes
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = if (isDurSelected) EmeraldPrimary else Color.White,
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    1.dp,
+                                                    if (isDurSelected) EmeraldPrimary else Color(0xFFCBD5E1)
+                                                ),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clickable { activeDurationMinutes = dur.minutes }
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(vertical = 8.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Text(
+                                                        text = "${dur.minutes} mnt",
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isDurSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Text(
+                                                        text = "Rp ${currencyFormat.format(dur.price / 1000)}k",
+                                                        fontSize = 10.sp,
+                                                        color = if (isDurSelected) Color.White.copy(alpha = 0.9f) else TextSecondary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = { showServicePickerSheet = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = "Terapkan Layanan",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
 }
 
 @Composable
