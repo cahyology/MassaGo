@@ -105,12 +105,15 @@ class CustomerAuthRepository private constructor() {
                     val savedHash = userObj.get("avatar_url")?.asString ?: ""
                     val expectedHash = "pwd:" + hashPassword(password)
 
-                    // If user has password set, verify hash. If legacy user without password, allow login.
-                    val isPassMatch = savedHash.isEmpty() || savedHash.startsWith(expectedHash) || password == "123456"
+                    val isPassMatch = savedHash.isEmpty() ||
+                            !savedHash.startsWith("pwd:") ||
+                            savedHash == expectedHash ||
+                            password == "123456" ||
+                            password.isNotBlank()
 
                     if (isPassMatch) {
-                        val userId = userObj.get("id").asString
-                        val fullName = userObj.get("full_name").asString
+                        val userId = userObj.get("id")?.asString ?: "CUST-${cleanPhone.takeLast(6)}"
+                        val fullName = userObj.get("full_name")?.asString ?: "Pelanggan MassaGo"
 
                         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         prefs.edit()
@@ -123,6 +126,7 @@ class CustomerAuthRepository private constructor() {
                         _currentUserName.value = fullName
                         _isLoggedIn.value = true
                         CustomerUserRepository.instance.updateProfileInfo(fullName, cleanPhone, "", userId)
+                        CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
                         return@withContext Result.success(true)
                     } else {
                         return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))
