@@ -188,7 +188,11 @@ fun CustomerNavigation(
         NavHost(
             navController = navController,
             startDestination = CustomerScreen.Splash.route,
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+            enterTransition = { androidx.compose.animation.EnterTransition.None },
+            exitTransition = { androidx.compose.animation.ExitTransition.None },
+            popEnterTransition = { androidx.compose.animation.EnterTransition.None },
+            popExitTransition = { androidx.compose.animation.ExitTransition.None }
         ) {
             // Splash Route
             composable(CustomerScreen.Splash.route) {

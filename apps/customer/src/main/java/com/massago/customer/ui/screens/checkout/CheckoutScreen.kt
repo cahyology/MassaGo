@@ -236,32 +236,54 @@ fun CheckoutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
-                shadowElevation = 0.dp
+                shadowElevation = 4.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Total Pembayaran",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                            fontSize = 11.sp
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isSafetyPledgeAgreed = !isSafetyPledgeAgreed }
+                            .padding(bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isSafetyPledgeAgreed,
+                            onCheckedChange = { isSafetyPledgeAgreed = it },
+                            colors = CheckboxDefaults.colors(checkedColor = EmeraldPrimary),
+                            modifier = Modifier.size(20.dp)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Rp " + currencyFormat.format(grandTotal),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = EmeraldDark
+                            text = "⚖️ Layanan pijat kesehatan keluarga murni tanpa asusila (Pasal 281 KUHP).",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
                         )
                     }
 
-                    val scope = rememberCoroutineScope()
-                    var isSubmitting by remember { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Total Pembayaran",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                text = "Rp " + currencyFormat.format(grandTotal),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = EmeraldDark
+                            )
+                        }
+
+                        val scope = rememberCoroutineScope()
+                        var isSubmitting by remember { mutableStateOf(false) }
 
                     Button(
                         enabled = !isSubmitting && !isTherapistOffline && isSafetyPledgeAgreed,
@@ -337,6 +359,7 @@ fun CheckoutScreen(
                     }
                 }
             }
+        }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -845,13 +868,13 @@ fun CheckoutScreen(
                 }
             }
 
-            // 🛡️ Two-Way Gender Declaration & Professional Safety Commitment Card
+            // 🛡️ Compact Gender Selector (Penerima & Preferensi Terapis)
             item {
                 Surface(
                     shape = RoundedCornerShape(18.dp),
                     color = Color.White,
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
-                    shadowElevation = 2.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -860,11 +883,11 @@ fun CheckoutScreen(
                                 imageVector = Icons.Default.Security,
                                 contentDescription = null,
                                 tint = EmeraldPrimary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Penerima Layanan & Preferensi Terapis",
+                                text = "Pengaturan Gender Penerima & Terapis",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -873,148 +896,83 @@ fun CheckoutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // 1. Jenis Kelamin Penerima Layanan
-                        Text(
-                            text = "Jenis Kelamin Penerima Pijat:",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            listOf(
-                                "Wanita" to "👩 Wanita",
-                                "Pria" to "👨 Pria",
-                                "Keluarga" to "👨‍👩‍👧 Pasutri"
-                            ).forEach { (value, label) ->
-                                val isSelected = selectedRecipientGender == value
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { selectedRecipientGender = value },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) EmeraldPrimary else Color.White,
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
-                                    )
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(vertical = 9.dp),
-                                        contentAlignment = Alignment.Center
+                            Text(
+                                text = "Penerima Pijat:",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextSecondary
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(
+                                    "Wanita" to "👩 Wanita",
+                                    "Pria" to "👨 Pria",
+                                    "Keluarga" to "👨‍👩‍👧 Pasutri"
+                                ).forEach { (value, label) ->
+                                    val isSelected = selectedRecipientGender == value
+                                    Surface(
+                                        modifier = Modifier.clickable { selectedRecipientGender = value },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) EmeraldPrimary else Color(0xFFF8FAFC),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
+                                        )
                                     ) {
                                         Text(
                                             text = label,
                                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
+                                            fontSize = 11.5.sp,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                         )
                                     }
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // 2. Preferensi Gender Terapis
-                        Text(
-                            text = "Preferensi Gender Terapis Mitra:",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            listOf(
-                                "Terapis Wanita" to "👩 Wanita",
-                                "Terapis Pria" to "👨 Pria",
-                                "Bebas" to "🤝 Bebas"
-                            ).forEach { (value, label) ->
-                                val isSelected = selectedTherapistGender == value
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { selectedTherapistGender = value },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) EmeraldPrimary else Color.White,
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
-                                    )
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(vertical = 9.dp),
-                                        contentAlignment = Alignment.Center
+                            Text(
+                                text = "Pilihan Terapis:",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextSecondary
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(
+                                    "Terapis Wanita" to "👩 Wanita",
+                                    "Terapis Pria" to "👨 Pria",
+                                    "Bebas" to "🤝 Bebas"
+                                ).forEach { (value, label) ->
+                                    val isSelected = selectedTherapistGender == value
+                                    Surface(
+                                        modifier = Modifier.clickable { selectedTherapistGender = value },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) EmeraldPrimary else Color(0xFFF8FAFC),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
+                                        )
                                     ) {
                                         Text(
                                             text = label,
                                             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
+                                            fontSize = 11.5.sp,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                         )
                                     }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // 3. Banner Komitmen Layanan Profesional (Zero-Tolerance Anti-Asusila)
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFFFEF3C7),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Gavel,
-                                        contentDescription = null,
-                                        tint = Color(0xFFD97706),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Komitmen Layanan Profesional (Pasal 281/289 KUHP)",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF92400E)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "MassaGo adalah platform pijat kesehatan keluarga murni. Segala bentuk pelecehan seksual, permintaan asusila, atau kekerasan akan langsung diproses hukum ke kepolisian dan akun diblokir permanen.",
-                                    fontSize = 10.5.sp,
-                                    lineHeight = 15.sp,
-                                    color = Color(0xFF78350F)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { isSafetyPledgeAgreed = !isSafetyPledgeAgreed }
-                                ) {
-                                    Checkbox(
-                                        checked = isSafetyPledgeAgreed,
-                                        onCheckedChange = { isSafetyPledgeAgreed = it },
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = Color(0xFFD97706),
-                                            checkmarkColor = Color.White
-                                        ),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Saya menyetujui komitmen layanan kebugaran keluarga profesional tanpa asusila.",
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF92400E)
-                                    )
                                 }
                             }
                         }

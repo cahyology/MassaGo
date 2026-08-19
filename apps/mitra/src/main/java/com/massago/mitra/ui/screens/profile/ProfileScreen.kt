@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -93,6 +94,7 @@ fun ProfileScreen(
     }
 
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showGenderPrefDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
 
@@ -296,6 +298,31 @@ fun ProfileScreen(
                 )
             }
 
+            // Preferred Client Gender Setting
+            item {
+                val subtitleText = when (profile.preferredClientGender) {
+                    "Wanita Saja" -> "Hanya menerima pelanggan wanita (Aman 100%)"
+                    "Pria Saja" -> "Hanya menerima pelanggan pria"
+                    else -> "Menerima semua pelanggan (Pria & Wanita)"
+                }
+                Surface(
+                    modifier = Modifier.fillMaxWidth().clickable { showGenderPrefDialog = true }
+                ) {
+                    SettingCardItem(
+                        title = "Filter Preferensi Pelanggan (Gender)",
+                        subtitle = subtitleText,
+                        icon = Icons.Default.Person,
+                        action = {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = EmeraldPrimary
+                            )
+                        }
+                    )
+                }
+            }
+
             // Safety Center Desk
             item {
                 Surface(
@@ -402,6 +429,85 @@ fun ProfileScreen(
 
             item {
                 Spacer(modifier = Modifier.height(40.dp))
+            }
+        }
+    }
+
+    if (showGenderPrefDialog) {
+        Dialog(onDismissRequest = { showGenderPrefDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                shadowElevation = 16.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "Preferensi Gender Pelanggan",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Pilih jenis kelamin pelanggan yang ingin Anda terima saat bertugas:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val options = listOf(
+                        "Semua" to "🤝 Menerima Semua Gender (Pria & Wanita)",
+                        "Wanita Saja" to "👩 Hanya Menerima Pelanggan Wanita (Aman 100%)",
+                        "Pria Saja" to "👨 Hanya Menerima Pelanggan Pria"
+                    )
+
+                    options.forEach { (key, label) ->
+                        val isSelected = profile.preferredClientGender == key
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable {
+                                    repository.setPreferredClientGender(key)
+                                    showGenderPrefDialog = false
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) EmeraldPrimary.copy(alpha = 0.1f) else Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isSelected) "🔘" else "⚪",
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = label,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) EmeraldDark else Color(0xFF334155)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    OutlinedButton(
+                        onClick = { showGenderPrefDialog = false },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Tutup", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
