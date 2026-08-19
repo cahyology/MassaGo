@@ -74,9 +74,14 @@ class TherapistRepository private constructor() {
 
     fun startRealtimeAdminSync(context: Context? = null, fallbackId: String = "") {
         scope.launch {
+            var loopCount = 0
             while (true) {
                 kotlinx.coroutines.delay(2500)
+                loopCount++
                 fetchPlatformCommission()
+                if (loopCount % 3 == 0) {
+                    refreshTodayMetricsAndHistory()
+                }
                 val currentId = _therapistProfile.value.id.ifBlank { fallbackId }
                 val currentPhone = _therapistProfile.value.phone
                 if (currentId.isNotBlank() || currentPhone.isNotBlank()) {
@@ -217,6 +222,76 @@ class TherapistRepository private constructor() {
             )
         }
         OrderRepository.instance.fetchOrderHistoryFromSupabase()
+        refreshTodayMetricsAndHistory()
+    }
+
+    fun refreshTodayMetricsAndHistory() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val profile = _therapistProfile.value
+                val id = profile.id
+                val phone = profile.phone
+                if (id.isBlank() && phone.isBlank()) return@launch
+
+                val ordersList = SupabaseClient.instance.fetchTherapistOrders(id, phone)
+                val commPercent = _platformCommissionPercent.value
+
+                val calendar = java.util.Calendar.getInstance()
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                val startOfTodayMillis = calendar.timeInMillis
+
+                var todayEarn = 0L
+                var todayCount = 0
+                var totalCompleted = 0
+
+                ordersList.forEach { orderMap ->
+                    val status = orderMap["status"]?.toString() ?: ""
+                    val isDone = status == "COMPLETED" || status == "COMPLETED_PAYMENT" || status == "REVIEW_SUBMITTED" || status == "FINISHED"
+                    if (isDone) {
+                        totalCompleted++
+                        val rawPrice = when (val p = orderMap["total_price"]) {
+                            is Number -> p.toLong()
+                            is String -> p.toDoubleOrNull()?.toLong() ?: 0L
+                            else -> 0L
+                        }
+                        val orderRate = when (val r = orderMap["commission_rate"]) {
+                            is Number -> r.toInt()
+                            is String -> r.toIntOrNull() ?: commPercent
+                            else -> commPercent
+                        }
+                        val orderMitraMultiplier = (100 - orderRate) / 100.0
+                        val netEarning = (rawPrice * orderMitraMultiplier).toLong()
+
+                        val createdAt = when (val c = orderMap["created_at"]) {
+                            is Number -> c.toLong()
+                            is String -> c.toDoubleOrNull()?.toLong() ?: 0L
+                            else -> 0L
+                        }
+
+                        if (createdAt >= startOfTodayMillis) {
+                            todayCount++
+                            todayEarn += netEarning
+                        }
+                    }
+                }
+
+                _therapistProfile.update { current ->
+                    current.copy(
+                        todayEarnings = todayEarn,
+                        todayOrdersCount = todayCount,
+                        totalOrdersCompleted = if (totalCompleted > current.totalOrdersCompleted) totalCompleted else current.totalOrdersCompleted
+                    )
+                }
+
+                // Sync wallet transactions from order history
+                WalletRepository.instance.syncWithCompletedOrders(ordersList, commPercent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun fetchTherapistProfileFromSupabase(phoneOrId: String) {

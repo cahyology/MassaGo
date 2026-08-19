@@ -253,8 +253,50 @@ fun WalletScreen(
             }
 
             // Transaction History Items
-            items(filteredTransactions) { tx ->
-                TransactionRowItem(tx = tx)
+            if (filteredTransactions.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(42.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Belum Ada Riwayat Transaksi",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Semua transaksi bagi hasil, potongan komisi, deposit, dan penarikan akan tercatat otomatis di sini.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(filteredTransactions) { tx ->
+                    TransactionRowItem(tx = tx)
+                }
             }
 
             item {
@@ -306,7 +348,10 @@ private fun TransactionRowItem(tx: WalletTransaction) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).padding(end = 12.dp)
+            ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -331,13 +376,24 @@ private fun TransactionRowItem(tx: WalletTransaction) {
                         text = tx.title,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 13.5.sp
                     )
+                    if (tx.description.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = tx.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.5.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = tx.formattedDate,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.5.sp
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        fontSize = 10.5.sp
                     )
                 }
             }

@@ -21,6 +21,10 @@ class WalletViewModel(
     val transactions: StateFlow<List<WalletTransaction>> = walletRepository.transactions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    init {
+        therapistRepository.refreshTodayMetricsAndHistory()
+    }
+
     fun withdrawFunds(bankName: String, accountNumber: String, amount: Long): Boolean {
         return walletRepository.requestWithdrawal(bankName, accountNumber, amount)
     }

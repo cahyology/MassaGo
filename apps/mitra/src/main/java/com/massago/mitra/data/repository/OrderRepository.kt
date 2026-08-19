@@ -846,6 +846,7 @@ class OrderRepository private constructor(
         prefs?.edit()?.remove("ACTIVE_ORDER_ID")?.apply()
         _activeOrder.value = null
         therapistRepository.setDutyStatus(DutyStatus.ONLINE)
+        therapistRepository.refreshTodayMetricsAndHistory()
     }
 
     private fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
