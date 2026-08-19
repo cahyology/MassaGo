@@ -67,15 +67,16 @@ Karena layanan berlangsung di ruang privat konsumen, keamanan adalah prioritas m
 
 ## 📋 6. Roadmap Pengembangan Teknis Selanjutnya
 
-### Tahap 1: Penyempurnaan Fitur Keamanan & Filter Order
-- [ ] Implementasi filter pilihan preferensi gender terapis pada form order customer.
-- [ ] Tombol SOS Terintegrasi di screen tracking Customer & Mitra.
-- [ ] Otomasi Grace Period Timer (15 menit) saat mitra tiba di lokasi.
+### Tahap 1: Penyempurnaan Fitur Keamanan & Filter Order ✅ (SELESAI)
+- [x] **Smart Gender Matching Filter**: Filter preferensi gender terapis (Wanita/Pria/Bebas) pada form order customer yang otomatis mencocokkan ke gender mitra terapis yang sesuai.
+- [x] **Tombol SOS Emergency Terintegrasi**: Tombol darurat 1-tap di app Customer & Mitra lengkap dengan panggilan cepat Polisi 110, Ambulans 118, Satgas MassaGo 24/7, serta siaran GPS darurat ke server.
+- [x] **Live SOS Incident Center**: Dashboard Superadmin (`/admin`) terhubung secara real-time ke tabel `sos_emergency_logs` dengan alert visual darurat.
+- [x] **Otomasi Grace Period Timer (15 Menit)**: Penghitung waktu tunggu otomatis saat mitra tiba di lokasi (`ARRIVED`) dengan batas toleransi 15 menit sesuai SOP.
 
-### Tahap 2: Manajemen Keuangan & Top-Up Terintegrasi
-- [ ] Fitur Top-Up Saldo Deposit Mitra dengan validasi QRIS/Bukti transfer.
-- [ ] Fitur Penarikan Dana (*Withdrawal Request*) mitra dengan notifikasi approval admin.
-- [ ] Fitur Tambah Durasi (*Extend Order*) saat sesi pijat sedang berlangsung.
+### Tahap 2: Manajemen Keuangan & Fleksibilitas Durasi (SELANJUTNYA)
+- [ ] **Fitur Tambah Durasi di Tempat (*Extend Order*)**: Pelanggan/terapis dapat menambah durasi (+30 mnt / +60 mnt) saat sesi pijat sedang berlangsung dengan kalkulasi biaya dan bagi hasil otomatis.
+- [ ] **Fitur Top-Up Saldo Deposit Mitra**: Integrasi QRIS / Transfer Bank untuk pengisian saldo deposit mitra dengan verifikasi instan.
+- [ ] **Form Penarikan Saldo Mitra (*Withdrawal Flow*)**: Penarikan penghasilan terapis ke rekening bank/e-wallet dengan notifikasi persetujuan di Superadmin panel.
 
 ### Tahap 3: Scale-Up Mode Hybrid (Direktori Terapis)
 - [ ] Halaman profil terapis di aplikasi customer (foto, bio, sertifikasi, rating & ulasan).
