@@ -31,8 +31,8 @@ import java.util.Locale
 
 object NotificationSoundHelper {
 
-    private const val CHANNEL_ID = "massago_orders_channel"
-    private const val CHANNEL_NAME = "Order Pijat Masuk (Prioritas Tinggi)"
+    private const val CHANNEL_ID = "massago_orders_channel_v4"
+    private const val CHANNEL_NAME = "Order Pijat Masuk (Panggilan Masuk)"
     private const val NOTIFICATION_ID = 8821
 
     private var activeRingtone: Ringtone? = null
@@ -42,8 +42,8 @@ object NotificationSoundHelper {
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val soundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val soundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
@@ -58,7 +58,7 @@ object NotificationSoundHelper {
                 enableLights(true)
                 enableVibration(true)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 600)
+                vibrationPattern = longArrayOf(0, 600, 200, 600, 200, 800)
                 setSound(soundUri, audioAttributes)
             }
 
@@ -68,6 +68,18 @@ object NotificationSoundHelper {
     }
 
     fun triggerIncomingOrderAlert(context: Context, order: Order) {
+        // Wake up screen if locked or turned off
+        try {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            val screenWakeLock = pm?.newWakeLock(
+                android.os.PowerManager.FULL_WAKE_LOCK or
+                android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                android.os.PowerManager.ON_AFTER_RELEASE,
+                "MassaGoMitra::IncomingOrderScreenWake"
+            )
+            screenWakeLock?.acquire(15000L) // Turn on screen for 15 seconds
+        } catch (_: Exception) {}
+
         createNotificationChannel(context)
         showHeadsUpNotification(context, order)
         startAudioAndVibrationAlert(context)

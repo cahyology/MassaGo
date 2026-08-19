@@ -125,7 +125,15 @@ class MitraLocationService : Service() {
                     e.printStackTrace()
                 }
 
-                startForeground(NOTIFICATION_ID, buildForegroundNotification())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        buildForegroundNotification(),
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    )
+                } else {
+                    startForeground(NOTIFICATION_ID, buildForegroundNotification())
+                }
                 requestLocationUpdates()
                 com.massago.mitra.data.repository.OrderRepository.instance.startRealtimeOrderPolling()
             }

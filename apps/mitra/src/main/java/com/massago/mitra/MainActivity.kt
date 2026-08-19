@@ -41,6 +41,20 @@ class MainActivity : ComponentActivity() {
             )
         )
 
+        // Keep screen capable of waking up for incoming orders
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+        }
+
         // Initialize Auth, Theme preference manager, and notification channel
         com.massago.mitra.data.repository.AuthRepository.instance.init(applicationContext)
         ThemeManager.init(applicationContext)

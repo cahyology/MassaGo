@@ -253,7 +253,8 @@ class OrderRepository private constructor(
                 if (isOnline && _activeOrder.value == null) {
                     checkForRealIncomingOrder()
                 } else if (!isOnline && _activeOrder.value == null) {
-                    break
+                    delay(2500)
+                    continue
                 }
                 delay(1000) // Fast 1-second polling for instant background order detection
             }
