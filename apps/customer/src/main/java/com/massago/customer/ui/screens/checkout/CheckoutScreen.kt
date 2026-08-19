@@ -24,10 +24,14 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Discount
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -85,8 +89,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import com.massago.customer.data.repository.TherapistAvailabilityStatus
 import com.massago.customer.data.repository.TherapistLiveStatus
@@ -133,6 +135,16 @@ fun CheckoutScreen(
     val selectedPaymentMethod by viewModel.selectedPaymentMethod.collectAsState()
     val isScheduledLater by viewModel.isScheduledLater.collectAsState()
     val addressNote by viewModel.addressNote.collectAsState()
+
+    var selectedRecipientGender by remember { mutableStateOf("Wanita") }
+    var selectedTherapistGender by remember(genderPreference) {
+        mutableStateOf(
+            if (genderPreference.contains("Wanita", ignoreCase = true)) "Terapis Wanita"
+            else if (genderPreference.contains("Pria", ignoreCase = true)) "Terapis Pria"
+            else "Bebas"
+        )
+    }
+    var isSafetyPledgeAgreed by remember { mutableStateOf(true) }
 
     val therapistLiveStatus by viewModel.therapistLiveStatus.collectAsState()
     val isSurchargeAccepted by viewModel.isSurchargeAccepted.collectAsState()
@@ -252,9 +264,9 @@ fun CheckoutScreen(
                     var isSubmitting by remember { mutableStateOf(false) }
 
                     Button(
-                        enabled = !isSubmitting && !isTherapistOffline,
+                        enabled = !isSubmitting && !isTherapistOffline && isSafetyPledgeAgreed,
                         onClick = {
-                            if (isSubmitting || isTherapistOffline) return@Button
+                            if (isSubmitting || isTherapistOffline || !isSafetyPledgeAgreed) return@Button
                             val orderId = "ORD-${System.currentTimeMillis()}"
                             viewModel.placeOrder(
                                 serviceId = service.id,
@@ -262,7 +274,8 @@ fun CheckoutScreen(
                                 aromaId = selectedAroma.id,
                                 focusAreas = focusAreas,
                                 pressureLevel = pressureLevel,
-                                genderPreference = genderPreference,
+                                genderPreference = selectedTherapistGender,
+                                recipientGender = selectedRecipientGender,
                                 preferredTherapistId = activePreferredTherapistId.ifBlank { null },
                                 isRepeatOrder = activePreferredTherapistId.isNotBlank(),
                                 scheduledTime = if (isScheduledLater) "SCHEDULED_LATER" else null
@@ -828,6 +841,183 @@ fun CheckoutScreen(
                                 unfocusedContainerColor = Color(0xFFF8FAFC)
                             )
                         )
+                    }
+                }
+            }
+
+            // 🛡️ Two-Way Gender Declaration & Professional Safety Commitment Card
+            item {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.White,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = EmeraldPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Penerima Layanan & Preferensi Terapis",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // 1. Jenis Kelamin Penerima Layanan
+                        Text(
+                            text = "Jenis Kelamin Penerima Pijat:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "Wanita" to "👩 Wanita",
+                                "Pria" to "👨 Pria",
+                                "Keluarga" to "👨‍👩‍👧 Pasutri"
+                            ).forEach { (value, label) ->
+                                val isSelected = selectedRecipientGender == value
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedRecipientGender = value },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) EmeraldPrimary else Color.White,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
+                                    )
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 9.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // 2. Preferensi Gender Terapis
+                        Text(
+                            text = "Preferensi Gender Terapis Mitra:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "Terapis Wanita" to "👩 Wanita",
+                                "Terapis Pria" to "👨 Pria",
+                                "Bebas" to "🤝 Bebas"
+                            ).forEach { (value, label) ->
+                                val isSelected = selectedTherapistGender == value
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedTherapistGender = value },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) EmeraldPrimary else Color.White,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isSelected) EmeraldPrimary else Color(0xFFE2E8F0)
+                                    )
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 9.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // 3. Banner Komitmen Layanan Profesional (Zero-Tolerance Anti-Asusila)
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFFFEF3C7),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Gavel,
+                                        contentDescription = null,
+                                        tint = Color(0xFFD97706),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Komitmen Layanan Profesional (Pasal 281/289 KUHP)",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF92400E)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "MassaGo adalah platform pijat kesehatan keluarga murni. Segala bentuk pelecehan seksual, permintaan asusila, atau kekerasan akan langsung diproses hukum ke kepolisian dan akun diblokir permanen.",
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 15.sp,
+                                    color = Color(0xFF78350F)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable { isSafetyPledgeAgreed = !isSafetyPledgeAgreed }
+                                ) {
+                                    Checkbox(
+                                        checked = isSafetyPledgeAgreed,
+                                        onCheckedChange = { isSafetyPledgeAgreed = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = Color(0xFFD97706),
+                                            checkmarkColor = Color.White
+                                        ),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Saya menyetujui komitmen layanan kebugaran keluarga profesional tanpa asusila.",
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF92400E)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

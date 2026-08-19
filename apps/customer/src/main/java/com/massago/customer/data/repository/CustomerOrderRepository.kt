@@ -366,6 +366,7 @@ class CustomerOrderRepository private constructor(
         focusAreas: List<String>,
         pressureLevel: PressureLevel,
         genderPreference: String,
+        recipientGender: String = "Wanita",
         voucherCode: String?,
         paymentMethod: CustomerPaymentMethod,
         preferredTherapistId: String? = null,
@@ -427,6 +428,8 @@ class CustomerOrderRepository private constructor(
                     }
                     append(loc.address)
                     append(" [GPS:").append(loc.latitude).append(",").append(loc.longitude).append("]")
+                    append(" [RECIPIENT_GENDER:").append(recipientGender).append("]")
+                    append(" [PREF_GENDER:").append(genderPreference).append("]")
                     if (loc.notes.isNotBlank()) {
                         append(" [NOTE:").append(loc.notes).append("]")
                     }
@@ -453,6 +456,7 @@ class CustomerOrderRepository private constructor(
                     addProperty("customer_phone", currentProfile.phone)
                     addProperty("address", formattedAddress)
                     addProperty("gender_preference", genderPreference)
+                    addProperty("recipient_gender", recipientGender)
                     addProperty("created_at", System.currentTimeMillis())
 
                     if (!preferredTherapistId.isNullOrBlank()) {

@@ -99,6 +99,9 @@ fun ActiveOrderScreen(
     val unreadChatCount by ChatRepository.instance.unreadCount.collectAsState()
     val therapistProfile by com.massago.mitra.data.repository.TherapistRepository.instance.therapistProfile.collectAsState()
     var showMitraSosDialog by remember { mutableStateOf(false) }
+    var showSafetyRefusalDialog by remember { mutableStateOf(false) }
+    var selectedRefusalReason by remember { mutableStateOf("Data Penerima Layanan Tidak Sesuai (Pria sendirian di kamar privat)") }
+    var refusalNotes by remember { mutableStateOf("") }
     var graceSecondsRemaining by remember { mutableIntStateOf(900) } // 15 Menit
 
     val currentOrder = activeOrder
@@ -219,6 +222,159 @@ fun ActiveOrderScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
                     ) {
                         Text("PANCARKAN SINYAL KE SERVER", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showSafetyRefusalDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showSafetyRefusalDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                shadowElevation = 16.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(22.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEF2F2)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🛡️", fontSize = 28.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Hak Tolak di Tempat & Keamanan Mitra",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFECFDF5),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "✅ Perlindungan Mitra 100% Bebas Penalti",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF065F46)
+                            )
+                            Text(
+                                text = "Rating Anda tidak akan turun dan Anda otomatis menerima kompensasi uang jalan Rp 15.000 dari sistem.",
+                                fontSize = 10.5.sp,
+                                color = Color(0xFF047857)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Pilih Alasan Pembatalan SOP:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 6.dp)
+                    )
+
+                    val refusalReasons = listOf(
+                        "Data Penerima Layanan Tidak Sesuai (Pria sendirian di kamar privat)",
+                        "Permintaan Asusila / Indikasi Pelecehan Seksual",
+                        "Lokasi Mencurigakan / Membahayakan Keselamatan",
+                        "Pelanggan Mabuk / Kasar / Kontraindikasi Medis Berat"
+                    )
+
+                    refusalReasons.forEach { reason ->
+                        val isSelected = selectedRefusalReason == reason
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                                .clickable { selectedRefusalReason = reason },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) Color(0xFFFEE2E2) else Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) Color(0xFFEF4444) else Color(0xFFE2E8F0)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isSelected) "🔘" else "⚪",
+                                    fontSize = 12.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = reason,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) Color(0xFF991B1B) else Color(0xFF334155)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    androidx.compose.material3.OutlinedTextField(
+                        value = refusalNotes,
+                        onValueChange = { refusalNotes = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Catatan tambahan untuk laporan Superadmin (opsional)", fontSize = 11.sp) },
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = false,
+                        maxLines = 2
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.refuseOrderForSafetyMismatch(selectedRefusalReason, refusalNotes)
+                            showSafetyRefusalDialog = false
+                            onNavigateBack()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    ) {
+                        Text(
+                            text = "TOLAK & KLAIM KOMPENSASI RP 15.000",
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedButton(
+                        onClick = { showSafetyRefusalDialog = false },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Kembali", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -614,6 +770,22 @@ fun ActiveOrderScreen(
                                         fontSize = 14.sp
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedButton(
+                                    onClick = { showSafetyRefusalDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.7f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
+                                ) {
+                                    Icon(imageVector = Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("TOLAK LAYANAN (SOP / GENDER TIDAK SESUAI)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -724,6 +896,22 @@ fun ActiveOrderScreen(
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 14.sp
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = { showSafetyRefusalDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.7f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
+                    ) {
+                        Icon(imageVector = Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("TOLAK LAYANAN (SOP / GENDER TIDAK SESUAI)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

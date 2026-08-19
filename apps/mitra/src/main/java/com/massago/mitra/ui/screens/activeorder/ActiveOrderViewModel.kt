@@ -56,6 +56,10 @@ class ActiveOrderViewModel(
         orderRepository.submitCustomerRating(rating, tags, comment)
     }
 
+    fun refuseOrderForSafetyMismatch(reason: String, notes: String = "") {
+        orderRepository.refuseOrderForSafetyMismatch(reason, notes)
+    }
+
     fun finishOrderAndReturnHome() {
         orderRepository.finishOrderAndReturnHome()
     }

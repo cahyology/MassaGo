@@ -380,21 +380,31 @@ class OrderRepository private constructor(
                     }
                 }
 
-                val orderGenderPref = (orderMap["gender_preference"] as? String) ?: "Bebas"
+                val orderGenderPref = (orderMap["gender_preference"] as? String)
+                    ?: if (rawAddress.contains("[PREF_GENDER:")) rawAddress.substringAfter("[PREF_GENDER:").substringBefore("]") else "Bebas"
+
+                val orderRecipientGender = (orderMap["recipient_gender"] as? String)
+                    ?: if (rawAddress.contains("[RECIPIENT_GENDER:")) rawAddress.substringAfter("[RECIPIENT_GENDER:").substringBefore("]") else "Wanita"
+
                 val myGender = therapistLoc.gender.trim()
                 val myPreferredClient = therapistLoc.preferredClientGender.trim()
 
-                // 1. Smart Gender Matching Filter
+                // 1. Strict Two-Way Gender Matching Filter
+                // Rule A: Customer Therapist Gender Preference Check
                 if (orderGenderPref.contains("Wanita", ignoreCase = true) && !myGender.equals("Wanita", ignoreCase = true)) {
                     return@withContext
                 }
                 if (orderGenderPref.contains("Pria", ignoreCase = true) && !myGender.equals("Pria", ignoreCase = true)) {
                     return@withContext
                 }
-                if (myPreferredClient.contains("Wanita", ignoreCase = true) && orderGenderPref.contains("Pria", ignoreCase = true)) {
+
+                // Rule B: Mitra Preferred Client Gender Check vs Recipient Gender
+                // If female therapist set to "Wanita Saja", NEVER dispatch Male client
+                if (myPreferredClient.contains("Wanita", ignoreCase = true) && orderRecipientGender.equals("Pria", ignoreCase = true)) {
                     return@withContext
                 }
-                if (myPreferredClient.contains("Pria", ignoreCase = true) && orderGenderPref.contains("Wanita", ignoreCase = true)) {
+                // If male therapist set to "Pria Saja", NEVER dispatch Female client
+                if (myPreferredClient.contains("Pria", ignoreCase = true) && orderRecipientGender.equals("Wanita", ignoreCase = true)) {
                     return@withContext
                 }
 
@@ -441,7 +451,7 @@ class OrderRepository private constructor(
                     id = "CLI-" + orderId.takeLast(4),
                     name = custName,
                     phone = custPhone,
-                    gender = "Pelanggan",
+                    gender = if (orderRecipientGender.equals("Pria", ignoreCase = true)) "Pria" else if (orderRecipientGender.equals("Keluarga", ignoreCase = true)) "Pasutri/Keluarga" else "Wanita",
                     address = cleanAddress.ifBlank { "Lokasi Penjemputan Pelanggan" },
                     addressNotes = addressNotes.ifBlank { "Titik Pin Google Maps" },
                     distanceKm = (distKm * 10).toInt() / 10.0,
@@ -762,6 +772,51 @@ class OrderRepository private constructor(
             )
         }
         return true
+    }
+
+    fun refuseOrderForSafetyMismatch(reason: String, notes: String = "") {
+        timerJob?.cancel()
+        val current = _activeOrder.value ?: return
+        val profile = therapistRepository.therapistProfile.value
+
+        // 1. Credit Transport Compensation (Rp 15.000) to Mitra Wallet
+        val compensationAmount = 15000L
+        walletRepository.recordOrderPayout(
+            orderId = current.id,
+            packageName = "Kompensasi Hak Tolak SOP: $reason",
+            therapistNetEarning = compensationAmount,
+            tip = 0L,
+            platformFee = 0L
+        )
+        therapistRepository.addEarnings(compensationAmount)
+
+        // 2. Dispatch Incident Alert to Supabase SOS Emergency Logs & Update Order
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                // Send SOS incident log for immediate Superadmin audit
+                SupabaseClient.instance.sendSosAlert(
+                    senderType = "THERAPIST",
+                    senderId = profile.id,
+                    senderName = profile.name,
+                    senderPhone = profile.phone,
+                    orderId = current.id,
+                    latitude = profile.latitude,
+                    longitude = profile.longitude,
+                    emergencyType = "SAFETY_REFUSAL_MISMATCH",
+                    notes = "Hak Tolak di Tempat: $reason. Catatan: $notes"
+                )
+
+                // Update order status in Supabase to CANCELLED
+                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // 3. Clear Active Order and Set Status back to ONLINE (0% penalty)
+        prefs?.edit()?.remove("ACTIVE_ORDER_ID")?.apply()
+        _activeOrder.value = null
+        therapistRepository.setDutyStatus(DutyStatus.ONLINE)
     }
 
     fun finishOrderAndReturnHome() {

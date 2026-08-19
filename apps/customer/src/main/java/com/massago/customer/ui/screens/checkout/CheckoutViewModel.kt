@@ -204,6 +204,7 @@ class CheckoutViewModel(
         focusAreas: List<String>,
         pressureLevel: PressureLevel,
         genderPreference: String,
+        recipientGender: String = "Wanita",
         preferredTherapistId: String? = null,
         isRepeatOrder: Boolean = false,
         scheduledTime: String? = null
@@ -225,6 +226,7 @@ class CheckoutViewModel(
             focusAreas = focusAreas,
             pressureLevel = pressureLevel,
             genderPreference = genderPreference,
+            recipientGender = recipientGender,
             voucherCode = _selectedVoucher.value?.code,
             paymentMethod = _selectedPaymentMethod.value,
             preferredTherapistId = preferredTherapistId,
