@@ -119,8 +119,10 @@ class AuthRepository private constructor() {
                         }
                     }
 
-                    // If password not yet set (legacy), or match found, or master password
-                    if (!hasPasswordEntry || isPassMatch || password == "123456") {
+                    // Verifikasi password asli: jika terapis sudah membuat password, harus cocok dengan hash SHA-256
+                    val isPassValid = if (hasPasswordEntry) isPassMatch else true
+
+                    if (isPassValid) {
                         val userId = userObj.get("id")?.asString ?: ""
                         val therapistName = userObj.get("name")?.asString ?: "Mitra Terapis"
                         val gender = userObj.get("gender")?.asString ?: "Pria"

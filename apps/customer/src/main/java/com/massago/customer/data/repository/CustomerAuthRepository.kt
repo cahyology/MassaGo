@@ -105,11 +105,13 @@ class CustomerAuthRepository private constructor() {
                     val savedHash = userObj.get("avatar_url")?.asString ?: ""
                     val expectedHash = "pwd:" + hashPassword(password)
 
-                    val isPassMatch = savedHash.isEmpty() ||
-                            !savedHash.startsWith("pwd:") ||
-                            savedHash == expectedHash ||
-                            password == "123456" ||
-                            password.isNotBlank()
+                    // Verifikasi password asli: jika akun sudah memiliki password, harus cocok dengan hash SHA-256
+                    val isPassMatch = if (savedHash.startsWith("pwd:")) {
+                        savedHash == expectedHash
+                    } else {
+                        // Pengguna lama yang belum memiliki password (legacy)
+                        true
+                    }
 
                     if (isPassMatch) {
                         val userId = userObj.get("id")?.asString ?: "CUST-${cleanPhone.takeLast(6)}"
