@@ -17,6 +17,8 @@ class WalletRepository private constructor(
     fun recordOrderPayout(orderId: String, packageName: String, therapistNetEarning: Long, tip: Long, platformFee: Long) {
         val now = System.currentTimeMillis()
         val newTxList = mutableListOf<WalletTransaction>()
+        val commPercent = therapistRepository.platformCommissionPercent.value
+        val mitraPercent = 100 - commPercent
 
         // Main order earning
         newTxList.add(
@@ -26,7 +28,7 @@ class WalletRepository private constructor(
                 amount = therapistNetEarning - tip,
                 orderId = orderId,
                 title = "Pendapatan Sesi: $packageName",
-                description = "Bagi hasil 80% + Tunjangan transport",
+                description = "Bagi hasil ${mitraPercent}% + Tunjangan transport",
                 timestampMillis = now
             )
         )
@@ -53,7 +55,7 @@ class WalletRepository private constructor(
                 type = TransactionType.PLATFORM_COMMISSION,
                 amount = platformFee,
                 orderId = orderId,
-                title = "Potongan Komisi Aplikasi (20%)",
+                title = "Potongan Komisi Aplikasi (${commPercent}%)",
                 description = "Dipotong dari saldo deposit mitra",
                 timestampMillis = now + 200
             )

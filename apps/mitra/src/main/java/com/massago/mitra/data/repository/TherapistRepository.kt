@@ -76,6 +76,7 @@ class TherapistRepository private constructor() {
         scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(2500)
+                fetchPlatformCommission()
                 val currentId = _therapistProfile.value.id.ifBlank { fallbackId }
                 val currentPhone = _therapistProfile.value.phone
                 if (currentId.isNotBlank() || currentPhone.isNotBlank()) {
