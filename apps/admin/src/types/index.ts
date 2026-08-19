@@ -51,6 +51,7 @@ export interface Order {
   customer_lng?: number;
   latitude?: number;
   longitude?: number;
+  commission_rate?: number;
   // Join helpers
   therapist?: Therapist;
 }

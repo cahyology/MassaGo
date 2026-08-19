@@ -66,13 +66,19 @@ export const FinanceLedger: React.FC<FinanceLedgerProps> = ({ orders, therapists
     }
   };
 
-  // Calculate directly from real completed orders
+  // Calculate directly from real completed orders using historical rate per order
   const totalGmv = orders.reduce((acc, curr) => acc + (curr.total_price || 0), 0);
-  const platformRateDecimal = commissionPercent / 100.0;
-  const mitraRateDecimal = (100 - commissionPercent) / 100.0;
 
-  const platformFee = Math.round(totalGmv * platformRateDecimal);
-  const mitraNetTotal = Math.round(totalGmv * mitraRateDecimal);
+  let platformFee = 0;
+  let mitraNetTotal = 0;
+  orders.forEach((order) => {
+    const price = order.total_price || 0;
+    const rate = order.commission_rate ?? commissionPercent;
+    const pShare = Math.round(price * (rate / 100.0));
+    const mShare = Math.round(price * ((100 - rate) / 100.0));
+    platformFee += pShare;
+    mitraNetTotal += mShare;
+  });
 
   const formatRupiah = (num: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -204,8 +210,9 @@ export const FinanceLedger: React.FC<FinanceLedgerProps> = ({ orders, therapists
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {orders.map((order) => {
                 const price = order.total_price || 0;
-                const platformShare = Math.round(price * platformRateDecimal);
-                const mitraShare = Math.round(price * mitraRateDecimal);
+                const rate = order.commission_rate ?? commissionPercent;
+                const platformShare = Math.round(price * (rate / 100.0));
+                const mitraShare = Math.round(price * ((100 - rate) / 100.0));
 
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
