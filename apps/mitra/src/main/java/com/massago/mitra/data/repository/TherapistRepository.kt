@@ -177,6 +177,7 @@ class TherapistRepository private constructor() {
                 mainBalance = walletBalance
             )
         }
+        OrderRepository.instance.fetchOrderHistoryFromSupabase()
     }
 
     fun fetchTherapistProfileFromSupabase(phoneOrId: String) {

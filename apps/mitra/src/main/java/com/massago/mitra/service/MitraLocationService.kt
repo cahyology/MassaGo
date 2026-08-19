@@ -183,17 +183,24 @@ class MitraLocationService : Service() {
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("MassaGo Mitra — Siap Terima Pesanan")
-            .setContentText("GPS & Radar aktif. Menyiarkan koordinat untuk klien terdekat.")
+            .setContentTitle("🟢 MassaGo Mitra — Siap Terima Order")
+            .setContentText("Radar GPS aktif • Menyiarkan lokasi untuk order pelanggan")
+            .setSubText("Online On Duty")
             .setSmallIcon(R.drawable.ic_notification_stat)
             .setOngoing(true)
+            .setAutoCancel(false)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
     }
 
@@ -201,10 +208,12 @@ class MitraLocationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Layanan GPS & Radar Mitra",
-                NotificationManager.IMPORTANCE_LOW
+                "Status Layanan Mitra MassaGo",
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Notifikasi status online terapis di latar belakang"
+                description = "Notifikasi status online terapis dan radar pesanan di latar belakang"
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)

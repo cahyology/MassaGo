@@ -185,6 +185,7 @@ class CustomerUserRepository private constructor() {
             updated
         }
         fetchSavedAddressesFromSupabase()
+        CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
     }
 
     fun setLocation(location: CustomerLocation) {

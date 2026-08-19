@@ -130,12 +130,12 @@ fun HomeScreen(
         } catch (_: Exception) {}
     }
 
-    // Audio Chime & Push Notification Effect when order arrives
+    // Audio Chime & Push Notification Effect when order arrives in foreground
     LaunchedEffect(activeOrder?.id, activeOrder?.status) {
         val current = activeOrder
         if (current != null && current.status == OrderStatus.INCOMING) {
             NotificationSoundHelper.triggerIncomingOrderAlert(context, current)
-        } else {
+        } else if (current != null && current.status != OrderStatus.INCOMING) {
             NotificationSoundHelper.stopIncomingOrderAlert(context)
         }
     }
@@ -151,7 +151,6 @@ fun HomeScreen(
             lifecycleOwner.lifecycle.addObserver(observer)
             onDispose {
                 lifecycleOwner.lifecycle.removeObserver(observer)
-                NotificationSoundHelper.stopIncomingOrderAlert(context)
             }
         }
     }

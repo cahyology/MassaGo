@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,10 @@ fun OrderHistoryScreen(
     val history by orderRepository.orderHistory.collectAsState()
     var selectedOrderForDetail by remember { mutableStateOf<Order?>(null) }
     val currencyFormat = NumberFormat.getNumberInstance(Locale("id", "ID"))
+
+    LaunchedEffect(Unit) {
+        orderRepository.fetchOrderHistoryFromSupabase()
+    }
 
     Scaffold(
         topBar = {

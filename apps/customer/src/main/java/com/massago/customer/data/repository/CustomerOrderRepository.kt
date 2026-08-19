@@ -84,8 +84,14 @@ class CustomerOrderRepository private constructor(
     fun fetchOrderHistoryFromSupabase() {
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val phone = userRepository.profile.value.phone
-                val rows = SupabaseCustomerClient.instance.fetchCustomerOrders(phone)
+                val profile = userRepository.profile.value
+                val phone = profile.phone.ifBlank {
+                    prefs?.getString("USER_PHONE", "") ?: ""
+                }
+                val customerId = profile.id.ifBlank {
+                    prefs?.getString("USER_ID", "") ?: ""
+                }
+                val rows = SupabaseCustomerClient.instance.fetchCustomerOrders(phone, customerId)
                 if (rows.isNotEmpty()) {
                     val mapped = rows.mapNotNull { row ->
                         try {

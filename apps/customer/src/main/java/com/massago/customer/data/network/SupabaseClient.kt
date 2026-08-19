@@ -697,18 +697,24 @@ class SupabaseCustomerClient(
     /**
      * Fetch order history for customer from Supabase
      */
-    suspend fun fetchCustomerOrders(phone: String): List<Map<String, Any>> = withContext(Dispatchers.IO) {
+    suspend fun fetchCustomerOrders(phone: String, customerId: String = ""): List<Map<String, Any>> = withContext(Dispatchers.IO) {
         try {
             var cleanPhone = phone.replace("[^0-9]".toRegex(), "")
             if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
             else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
 
-            val url = if (cleanPhone.isNotBlank()) {
-                "$baseUrl/rest/v1/orders?or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone)&order=created_at.desc&limit=50"
+            val query = if (cleanPhone.isNotBlank() && customerId.isNotBlank()) {
+                "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone,customer_id.eq.$customerId)"
+            } else if (cleanPhone.isNotBlank()) {
+                "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone)"
+            } else if (customerId.isNotBlank()) {
+                "customer_id=eq.$customerId"
             } else {
-                "$baseUrl/rest/v1/orders?order=created_at.desc&limit=20"
+                "limit=20"
             }
+
+            val url = "$baseUrl/rest/v1/orders?$query&order=created_at.desc&limit=50"
 
             val request = Request.Builder().url(url).get().build()
             val response = client.newCall(request).execute()
