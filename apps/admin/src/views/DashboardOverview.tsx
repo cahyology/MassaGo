@@ -176,7 +176,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     TREATMENT_IN_PROGRESS: { label: 'Sesi Pijat Berjalan', variant: 'emerald' },
                     COMPLETED_PAYMENT: { label: 'Selesai', variant: 'emerald' },
                     REVIEW_SUBMITTED: { label: 'Selesai & Dinilai', variant: 'emerald' },
-                    CANCELLED: { label: 'Dibatalkan', variant: 'rose' },
+                    CANCELLED_SAFETY_MISMATCH: { label: '🚫 Dibatalkan Mitra (SOP/Gender)', variant: 'rose' },
+                    CANCELLED_BY_THERAPIST: { label: '🚫 Dibatalkan Mitra (Hak Tolak SOP)', variant: 'rose' },
+                    CANCELLED: { label: 'Dibatalkan Pelanggan', variant: 'slate' },
                   };
 
                   const currentStatus = statusMap[order.status] || {

@@ -804,8 +804,8 @@ class OrderRepository private constructor(
                     notes = "Hak Tolak di Tempat: $reason. Catatan: $notes"
                 )
 
-                // Update order status in Supabase to CANCELLED
-                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED")
+                // Update order status in Supabase to CANCELLED_SAFETY_MISMATCH
+                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED_SAFETY_MISMATCH")
             } catch (e: Exception) {
                 e.printStackTrace()
             }

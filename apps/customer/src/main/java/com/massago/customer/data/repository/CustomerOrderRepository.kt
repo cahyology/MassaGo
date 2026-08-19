@@ -578,6 +578,16 @@ class CustomerOrderRepository private constructor(
                             if (statusStr.startsWith("COMPLETE")) {
                                 break
                             }
+                        } else if (statusStr.startsWith("CANCEL") || statusStr == "DECLINED") {
+                            timerJob?.cancel()
+                            withContext(Dispatchers.Main) {
+                                _activeOrder.update { current ->
+                                    current?.copy(
+                                        status = CustomerOrderStatus.CANCELLED
+                                    )
+                                }
+                            }
+                            break
                         }
                     }
                 } catch (e: Exception) {
@@ -704,6 +714,13 @@ class CustomerOrderRepository private constructor(
             userRepository.topUpWallet(current.grandTotal)
         }
 
+        _activeOrder.value = null
+    }
+
+    fun clearActiveOrder() {
+        matchingJob?.cancel()
+        timerJob?.cancel()
+        prefs?.edit()?.remove("ACTIVE_ORDER_ID")?.apply()
         _activeOrder.value = null
     }
 

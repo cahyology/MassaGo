@@ -46,6 +46,7 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
     { id: 'ACCEPTED_ON_THE_WAY', label: '🛵 Menuju Lokasi' },
     { id: 'TREATMENT_IN_PROGRESS', label: '💆 Sedang Sesi' },
     { id: 'COMPLETED_PAYMENT', label: '✓ Selesai' },
+    { id: 'CANCELLED_SAFETY_MISMATCH', label: '🚫 Dibatalkan Mitra (SOP/Gender)' },
     { id: 'CANCELLED', label: '✕ Dibatalkan' },
   ];
 
@@ -65,7 +66,10 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
       return order.status === 'TREATMENT_IN_PROGRESS' || order.status === 'IN_SERVICE';
     if (statusFilter === 'COMPLETED_PAYMENT')
       return order.status.startsWith('COMPLETE') || order.status === 'REVIEW_SUBMITTED';
-    if (statusFilter === 'CANCELLED') return order.status === 'CANCELLED';
+    if (statusFilter === 'CANCELLED_SAFETY_MISMATCH')
+      return order.status === 'CANCELLED_SAFETY_MISMATCH' || order.status === 'CANCELLED_BY_THERAPIST';
+    if (statusFilter === 'CANCELLED')
+      return order.status.startsWith('CANCEL') || order.status === 'DECLINED';
     return true;
   });
 
@@ -169,7 +173,9 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
                   TREATMENT_IN_PROGRESS: { label: 'Sesi Pijat Berjalan', variant: 'emerald' },
                   COMPLETED_PAYMENT: { label: 'Selesai', variant: 'emerald' },
                   REVIEW_SUBMITTED: { label: 'Selesai & Dinilai', variant: 'emerald' },
-                  CANCELLED: { label: 'Dibatalkan', variant: 'rose' },
+                  CANCELLED_SAFETY_MISMATCH: { label: '🚫 Dibatalkan Mitra (SOP/Gender)', variant: 'rose' },
+                  CANCELLED_BY_THERAPIST: { label: '🚫 Dibatalkan Mitra (Hak Tolak SOP)', variant: 'rose' },
+                  CANCELLED: { label: 'Dibatalkan Pelanggan', variant: 'slate' },
                 };
 
                 const currentStatus = statusMap[order.status] || {

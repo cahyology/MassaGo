@@ -33,4 +33,8 @@ class OrderTrackingViewModel(
     fun cancelOrder(reason: String = "Dibatalkan oleh pelanggan") {
         orderRepository.cancelActiveOrder(reason)
     }
+
+    fun clearActiveOrder() {
+        orderRepository.clearActiveOrder()
+    }
 }
