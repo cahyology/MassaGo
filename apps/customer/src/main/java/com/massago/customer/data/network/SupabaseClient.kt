@@ -737,14 +737,16 @@ class SupabaseCustomerClient(
             val plusPhone = if (cleanPhone.startsWith("62")) "+$cleanPhone" else "+62$cleanPhone"
             val raw8Phone = if (cleanPhone.startsWith("62")) cleanPhone.substring(2) else cleanPhone
 
+            if (cleanPhone.isBlank() && customerId.isBlank()) {
+                return@withContext emptyList()
+            }
+
             val query = if (cleanPhone.isNotBlank() && customerId.isNotBlank()) {
                 "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone,customer_phone.eq.$plusPhone,customer_phone.eq.$raw8Phone,customer_id.eq.$customerId)"
             } else if (cleanPhone.isNotBlank()) {
                 "or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone,customer_phone.eq.$plusPhone,customer_phone.eq.$raw8Phone)"
-            } else if (customerId.isNotBlank()) {
-                "customer_id=eq.$customerId"
             } else {
-                "limit=50"
+                "customer_id=eq.$customerId"
             }
 
             val url = "$baseUrl/rest/v1/orders?$query&order=created_at.desc&limit=50"

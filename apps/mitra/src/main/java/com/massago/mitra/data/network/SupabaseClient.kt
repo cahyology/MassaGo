@@ -573,14 +573,16 @@ class SupabaseClient(
             val plusPhone = if (cleanPhone.startsWith("62")) "+$cleanPhone" else "+62$cleanPhone"
             val raw8Phone = if (cleanPhone.startsWith("62")) cleanPhone.substring(2) else cleanPhone
 
+            if (therapistId.isBlank() && cleanPhone.isBlank()) {
+                return@withContext emptyList()
+            }
+
             val query = if (therapistId.isNotBlank() && cleanPhone.isNotBlank()) {
                 "or=(therapist_id.eq.$therapistId,therapist_id.eq.$cleanPhone,therapist_id.eq.$localPhone,therapist_id.eq.$plusPhone,therapist_id.eq.$raw8Phone)"
             } else if (therapistId.isNotBlank()) {
                 "therapist_id=eq.$therapistId"
-            } else if (cleanPhone.isNotBlank()) {
-                "or=(therapist_id.eq.$cleanPhone,therapist_id.eq.$localPhone,therapist_id.eq.$plusPhone,therapist_id.eq.$raw8Phone)"
             } else {
-                "limit=50"
+                "or=(therapist_id.eq.$cleanPhone,therapist_id.eq.$localPhone,therapist_id.eq.$plusPhone,therapist_id.eq.$raw8Phone)"
             }
 
             val request = Request.Builder()

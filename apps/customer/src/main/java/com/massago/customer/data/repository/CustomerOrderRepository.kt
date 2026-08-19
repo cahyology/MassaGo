@@ -424,14 +424,20 @@ class CustomerOrderRepository private constructor(
                     }
                 }
 
+                val currentProfile = userRepository.profile.value
+                val resolvedCustomerId = currentProfile.id.ifBlank { "CUST-${currentProfile.phone.takeLast(6)}" }
+
                 val orderJson = JsonObject().apply {
                     addProperty("id", newOrder.id)
+                    addProperty("customer_id", resolvedCustomerId)
                     addProperty("service_name", service.name)
                     addProperty("duration_minutes", durationMinutes)
                     addProperty("total_price", newOrder.grandTotal)
                     addProperty("status", "PENDING")
-                    addProperty("customer_name", userRepository.profile.value.name)
-                    addProperty("customer_phone", userRepository.profile.value.phone)
+                    addProperty("payment_method", paymentMethod.name)
+                    addProperty("payment_status", if (paymentMethod == CustomerPaymentMethod.PIJATIN_PAY) "PAID" else "UNPAID")
+                    addProperty("customer_name", currentProfile.name)
+                    addProperty("customer_phone", currentProfile.phone)
                     addProperty("address", formattedAddress)
                     addProperty("gender_preference", genderPreference)
                     addProperty("created_at", System.currentTimeMillis())
