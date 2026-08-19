@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -55,6 +57,60 @@ fun CustomerNavigation(
     val authRepo = CustomerAuthRepository.instance
     val isLoggedIn by authRepo.isLoggedIn.collectAsState()
     val tempPhone by authRepo.tempPhoneNumber.collectAsState()
+    val sessionTerminatedMsg by authRepo.sessionTerminatedMessage.collectAsState()
+
+    if (sessionTerminatedMsg != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                authRepo.clearSessionTerminatedMessage()
+                navController.navigate(CustomerScreen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
+            icon = {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                    contentDescription = "Sesi Berakhir",
+                    tint = Color(0xFFE11D48),
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Sesi Akun Berakhir",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF0F172A)
+                )
+            },
+            text = {
+                Text(
+                    text = sessionTerminatedMsg ?: "",
+                    fontSize = 14.sp,
+                    color = Color(0xFF475569),
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        authRepo.clearSessionTerminatedMessage()
+                        navController.navigate(CustomerScreen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = EmeraldPrimary
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                ) {
+                    Text("Masuk Kembali", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            containerColor = Color.White,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+        )
+    }
 
     val bottomNavItems = listOf(
         CustomerScreen.Home,

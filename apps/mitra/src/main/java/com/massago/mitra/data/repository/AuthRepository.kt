@@ -30,6 +30,7 @@ class AuthRepository private constructor() {
         private const val KEY_PHONE = "saved_phone"
         private const val KEY_USER_ID = "saved_user_id"
         private const val KEY_NAME = "saved_name"
+        private const val KEY_DEVICE_ID = "saved_device_session_id"
 
         val instance: AuthRepository by lazy { AuthRepository() }
 
@@ -51,6 +52,27 @@ class AuthRepository private constructor() {
         }
     }
 
+    private val _sessionTerminatedMessage = MutableStateFlow<String?>(null)
+    val sessionTerminatedMessage: StateFlow<String?> = _sessionTerminatedMessage.asStateFlow()
+
+    fun setSessionTerminatedMessage(msg: String?) {
+        _sessionTerminatedMessage.value = msg
+    }
+
+    fun clearSessionTerminatedMessage() {
+        _sessionTerminatedMessage.value = null
+    }
+
+    fun getOrCreateDeviceId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var devId = prefs.getString(KEY_DEVICE_ID, null)
+        if (devId.isNullOrBlank()) {
+            devId = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_DEVICE_ID, devId).apply()
+        }
+        return devId
+    }
+
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedLogin = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
@@ -60,6 +82,7 @@ class AuthRepository private constructor() {
         _isLoggedIn.value = savedLogin
         if (savedPhone.isNotBlank() || savedId.isNotBlank()) {
             therapistRepo.fetchTherapistProfileFromSupabase(savedPhone.ifEmpty { savedId })
+            therapistRepo.startRealtimeAdminSync(context, savedId.ifEmpty { savedPhone })
         }
     }
 
@@ -103,10 +126,13 @@ class AuthRepository private constructor() {
                 if (jsonArr.size() > 0) {
                     val userObj = jsonArr[0].asJsonObject
                     val certsArray = userObj.getAsJsonArray("certifications")
-                    val expectedPrefix = "pwd:" + hashPassword(password)
+                    val expectedHash = hashPassword(password)
+                    val expectedPrefix = "pwd:$expectedHash"
 
                     var hasPasswordEntry = false
                     var isPassMatch = false
+                    val existingCertsList = mutableListOf<String>()
+
                     if (certsArray != null) {
                         for (element in certsArray) {
                             val str = element.asString
@@ -115,6 +141,8 @@ class AuthRepository private constructor() {
                                 if (str == expectedPrefix) {
                                     isPassMatch = true
                                 }
+                            } else if (!str.startsWith("dev:")) {
+                                existingCertsList.add(str)
                             }
                         }
                     }
@@ -129,6 +157,29 @@ class AuthRepository private constructor() {
                         val tierBadge = userObj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
                         val deposit = userObj.get("deposit_balance")?.asLong ?: 0L
                         val wallet = userObj.get("wallet_balance")?.asLong ?: 0L
+                        val deviceId = getOrCreateDeviceId(context)
+
+                        // Update device session & password hash in Supabase certifications array
+                        val updatedCertsArray = com.google.gson.JsonArray().apply {
+                            for (c in existingCertsList) {
+                                add(c)
+                            }
+                            add(expectedPrefix)
+                            add("dev:$deviceId")
+                        }
+
+                        try {
+                            val patchPayload = JsonObject().apply {
+                                add("certifications", updatedCertsArray)
+                            }.toString()
+                            val patchReq = Request.Builder()
+                                .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)")
+                                .header("apikey", SupabaseConfig.ANON_KEY)
+                                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                                .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                                .build()
+                            client.newCall(patchReq).execute()
+                        } catch (_: Exception) {}
 
                         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         prefs.edit()
@@ -140,6 +191,7 @@ class AuthRepository private constructor() {
 
                         _isLoggedIn.value = true
                         therapistRepo.updateProfileInfo(userId, therapistName, cleanPhone, gender, tierBadge, deposit, wallet)
+                        therapistRepo.startRealtimeAdminSync(context, userId.ifEmpty { cleanPhone })
                         return@withContext Result.success(true)
                     } else {
                         return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))

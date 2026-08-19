@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,6 +31,7 @@ class CustomerAuthRepository private constructor() {
         private const val KEY_PHONE = "saved_phone"
         private const val KEY_USER_NAME = "saved_name"
         private const val KEY_USER_ID = "saved_user_id"
+        private const val KEY_DEVICE_ID = "saved_device_session_id"
 
         val instance: CustomerAuthRepository by lazy { CustomerAuthRepository() }
 
@@ -60,6 +62,10 @@ class CustomerAuthRepository private constructor() {
         _currentUserName.value = savedName
         _isLoggedIn.value = savedLogin
         CustomerUserRepository.instance.updateProfileInfo(savedName, savedPhone, "", savedId)
+
+        if (savedLogin && savedPhone.isNotBlank()) {
+            startSessionSecurityMonitor(context)
+        }
     }
 
     fun setTempPhone(phone: String) {
@@ -77,6 +83,26 @@ class CustomerAuthRepository private constructor() {
     /**
      * Login directly with Phone & Password (0 OTP required!)
      */
+    private val _sessionTerminatedMessage = MutableStateFlow<String?>(null)
+    val sessionTerminatedMessage: StateFlow<String?> = _sessionTerminatedMessage.asStateFlow()
+
+    private var sessionMonitorJob: kotlinx.coroutines.Job? = null
+    private val coroutineScope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+
+    fun clearSessionTerminatedMessage() {
+        _sessionTerminatedMessage.value = null
+    }
+
+    fun getOrCreateDeviceId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var devId = prefs.getString(KEY_DEVICE_ID, null)
+        if (devId.isNullOrBlank()) {
+            devId = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_DEVICE_ID, devId).apply()
+        }
+        return devId
+    }
+
     suspend fun loginWithPassword(
         context: Context,
         rawPhone: String,
@@ -102,20 +128,43 @@ class CustomerAuthRepository private constructor() {
                 val jsonArr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
                 if (jsonArr.size() > 0) {
                     val userObj = jsonArr[0].asJsonObject
-                    val savedHash = userObj.get("avatar_url")?.asString ?: ""
-                    val expectedHash = "pwd:" + hashPassword(password)
+                    val savedAvatar = userObj.get("avatar_url")?.asString ?: ""
+                    val expectedHash = hashPassword(password)
 
-                    // Verifikasi password asli: jika akun sudah memiliki password, harus cocok dengan hash SHA-256
-                    val isPassMatch = if (savedHash.startsWith("pwd:")) {
-                        savedHash == expectedHash
+                    // Extract password hash and previous device
+                    var savedPassHash = ""
+                    if (savedAvatar.startsWith("pwd:")) {
+                        val passPart = savedAvatar.substringAfter("pwd:").substringBefore("|")
+                        savedPassHash = passPart
+                    }
+
+                    val isPassMatch = if (savedPassHash.isNotBlank()) {
+                        savedPassHash == expectedHash
                     } else {
-                        // Pengguna lama yang belum memiliki password (legacy)
                         true
                     }
 
                     if (isPassMatch) {
                         val userId = userObj.get("id")?.asString ?: "CUST-${cleanPhone.takeLast(6)}"
                         val fullName = userObj.get("full_name")?.asString ?: "Pelanggan MassaGo"
+                        val deviceId = getOrCreateDeviceId(context)
+
+                        val newPassHash = if (savedPassHash.isNotBlank()) savedPassHash else expectedHash
+                        val updatedAvatar = "pwd:$newPassHash|dev:$deviceId"
+
+                        // Update device session in Supabase
+                        try {
+                            val patchPayload = JsonObject().apply {
+                                addProperty("avatar_url", updatedAvatar)
+                            }.toString()
+                            val patchReq = Request.Builder()
+                                .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)")
+                                .header("apikey", SupabaseConfig.ANON_KEY)
+                                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                                .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                                .build()
+                            client.newCall(patchReq).execute()
+                        } catch (_: Exception) {}
 
                         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         prefs.edit()
@@ -129,6 +178,7 @@ class CustomerAuthRepository private constructor() {
                         _isLoggedIn.value = true
                         CustomerUserRepository.instance.updateProfileInfo(fullName, cleanPhone, "", userId)
                         CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
+                        startSessionSecurityMonitor(context)
                         return@withContext Result.success(true)
                     } else {
                         return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))
@@ -242,14 +292,16 @@ class CustomerAuthRepository private constructor() {
         try {
             val phone = _tempPhoneNumber.value.ifEmpty { "081298765432" }
             val userId = "CUST-" + System.currentTimeMillis().toString().takeLast(6)
+            val deviceId = getOrCreateDeviceId(context)
             val passHash = if (password.isNotBlank()) "pwd:" + hashPassword(password) else ""
+            val avatarPayload = if (passHash.isNotBlank()) "$passHash|dev:$deviceId" else "dev:$deviceId"
 
             val payload = JsonObject().apply {
                 addProperty("id", userId)
                 addProperty("full_name", name)
                 addProperty("phone", phone)
                 addProperty("role", "CUSTOMER")
-                addProperty("avatar_url", passHash)
+                addProperty("avatar_url", avatarPayload)
             }.toString()
 
             val req = Request.Builder()
@@ -274,6 +326,7 @@ class CustomerAuthRepository private constructor() {
             _currentUserName.value = name
             _isLoggedIn.value = true
             CustomerUserRepository.instance.updateProfileInfo(name, phone, email, userId)
+            startSessionSecurityMonitor(context)
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -290,10 +343,12 @@ class CustomerAuthRepository private constructor() {
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val phone = _tempPhoneNumber.value.ifEmpty { "081298765432" }
+            val deviceId = getOrCreateDeviceId(context)
             val passHash = "pwd:" + hashPassword(newPassword)
+            val avatarPayload = "$passHash|dev:$deviceId"
 
             val payload = JsonObject().apply {
-                addProperty("avatar_url", passHash)
+                addProperty("avatar_url", avatarPayload)
             }.toString()
 
             val cleanPhone = phone.replace("[^0-9]".toRegex(), "")
@@ -315,6 +370,7 @@ class CustomerAuthRepository private constructor() {
                     .putString(KEY_PHONE, cleanPhone)
                     .apply()
                 _isLoggedIn.value = true
+                startSessionSecurityMonitor(context)
                 Result.success(true)
             } else {
                 Result.failure(Exception("Gagal memperbarui password di server"))
@@ -324,7 +380,55 @@ class CustomerAuthRepository private constructor() {
         }
     }
 
+    fun startSessionSecurityMonitor(context: Context) {
+        sessionMonitorJob?.cancel()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedPhone = prefs.getString(KEY_PHONE, "") ?: ""
+        val localDevId = getOrCreateDeviceId(context)
+
+        if (savedPhone.isBlank()) return
+
+        sessionMonitorJob = coroutineScope.launch {
+            val cleanPhone = normalizeIndonesianPhone(savedPhone)
+            val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+            val intlPhone = "+" + cleanPhone
+
+            while (_isLoggedIn.value) {
+                kotlinx.coroutines.delay(4000)
+                try {
+                    val req = Request.Builder()
+                        .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)&select=avatar_url")
+                        .header("apikey", SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                        .build()
+
+                    val res = OkHttpClient().newCall(req).execute()
+                    val bodyStr = res.body?.string() ?: ""
+                    if (res.isSuccessful && bodyStr.startsWith("[{")) {
+                        val arr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
+                        if (arr.size() > 0) {
+                            val avatar = arr[0].asJsonObject.get("avatar_url")?.asString ?: ""
+                            val devRegex = Regex("dev:([a-zA-Z0-9-]+)")
+                            val match = devRegex.find(avatar)
+                            if (match != null) {
+                                val remoteDevId = match.groupValues[1]
+                                if (remoteDevId.isNotBlank() && remoteDevId != localDevId) {
+                                    withContext(Dispatchers.Main) {
+                                        logout(context)
+                                        _sessionTerminatedMessage.value = "Akun Anda baru saja masuk di perangkat lain. Sesi di perangkat ini telah diakhiri demi keamanan akun & saldo Anda."
+                                    }
+                                    break
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
     fun logout(context: Context) {
+        sessionMonitorJob?.cancel()
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
         _isLoggedIn.value = false
@@ -332,6 +436,7 @@ class CustomerAuthRepository private constructor() {
 
     suspend fun deleteAccount(context: Context): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
+            sessionMonitorJob?.cancel()
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val phone = prefs.getString(KEY_PHONE, "") ?: ""
             val userId = prefs.getString(KEY_USER_ID, "") ?: ""

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TherapistRepository private constructor() {
 
@@ -70,11 +71,11 @@ class TherapistRepository private constructor() {
         startRealtimeAdminSync()
     }
 
-    private fun startRealtimeAdminSync() {
+    fun startRealtimeAdminSync(context: Context? = null, fallbackId: String = "") {
         scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(2500)
-                val currentId = _therapistProfile.value.id
+                val currentId = _therapistProfile.value.id.ifBlank { fallbackId }
                 val currentPhone = _therapistProfile.value.phone
                 if (currentId.isNotBlank() || currentPhone.isNotBlank()) {
                     try {
@@ -85,7 +86,7 @@ class TherapistRepository private constructor() {
                         val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
                         val req = okhttp3.Request.Builder()
-                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude")
+                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications")
                             .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
                             .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
                             .build()
@@ -110,6 +111,40 @@ class TherapistRepository private constructor() {
                                 val orders = obj.get("orders_completed")?.asInt ?: 0
                                 val remoteLat = obj.get("latitude")?.asDouble ?: _therapistProfile.value.latitude
                                 val remoteLng = obj.get("longitude")?.asDouble ?: _therapistProfile.value.longitude
+
+                                // Single Active Device Auto-Kick Check
+                                if (context != null) {
+                                    val certsArr = obj.getAsJsonArray("certifications")
+                                    var remoteDevId: String? = null
+                                    if (certsArr != null) {
+                                        for (elem in certsArr) {
+                                            val cStr = elem.asString
+                                            if (cStr.startsWith("dev:")) {
+                                                remoteDevId = cStr.substringAfter("dev:")
+                                                break
+                                            }
+                                        }
+                                    }
+                                    val localDevId = AuthRepository.instance.getOrCreateDeviceId(context)
+                                    if (remoteDevId != null && remoteDevId.isNotBlank() && remoteDevId != localDevId) {
+                                        withContext(Dispatchers.Main) {
+                                            try {
+                                                val stopIntent = android.content.Intent(context, com.massago.mitra.service.MitraLocationService::class.java).apply {
+                                                    action = com.massago.mitra.service.MitraLocationService.ACTION_STOP
+                                                }
+                                                context.stopService(stopIntent)
+                                            } catch (_: Exception) {}
+
+                                            AuthRepository.instance.setSessionTerminatedMessage(
+                                                "Akun Mitra Anda baru saja masuk di perangkat lain. Sesi dan pelacakan GPS di perangkat ini telah diakhiri demi keamanan akun Anda."
+                                            )
+                                            val prefs = context.getSharedPreferences("massago_mitra_auth", Context.MODE_PRIVATE)
+                                            prefs.edit().clear().apply()
+                                            _therapistProfile.update { it.copy(dutyStatus = DutyStatus.OFFLINE) }
+                                        }
+                                        break
+                                    }
+                                }
 
                                 val isVerif = !remoteTier.contains("Menunggu") && !remoteTier.contains("Review") && !remoteTier.contains("Tolak") && !remoteTier.contains("Nonaktif")
 
