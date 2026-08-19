@@ -1,6 +1,9 @@
 package com.massago.customer.data.repository
 
+import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.google.gson.reflect.TypeToken
+import com.massago.customer.data.model.CustomerLocation
 import com.massago.customer.data.model.CustomerMockPromos
 import com.massago.customer.data.model.CustomerOrder
 import com.massago.customer.data.model.CustomerOrderStatus
@@ -34,7 +37,23 @@ class CustomerOrderRepository private constructor(
     private val _activeOrder = MutableStateFlow<CustomerOrder?>(null)
     val activeOrder: StateFlow<CustomerOrder?> = _activeOrder.asStateFlow()
 
-    private val _orderHistory = MutableStateFlow<List<CustomerOrder>>(emptyList())
+    private val gson = Gson()
+
+    private fun loadPersistedOrderHistory(): List<CustomerOrder> {
+        val historyJson = prefs?.getString("CUSTOMER_ORDER_HISTORY_JSON", null) ?: return emptyList()
+        return try {
+            val listType = object : TypeToken<List<CustomerOrder>>() {}.type
+            gson.fromJson(historyJson, listType) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun persistOrderHistory(history: List<CustomerOrder>) {
+        prefs?.edit()?.putString("CUSTOMER_ORDER_HISTORY_JSON", gson.toJson(history))?.apply()
+    }
+
+    private val _orderHistory = MutableStateFlow<List<CustomerOrder>>(loadPersistedOrderHistory())
     val orderHistory: StateFlow<List<CustomerOrder>> = _orderHistory.asStateFlow()
 
     private val _availableVouchers = MutableStateFlow<List<PromoVoucher>>(CustomerMockPromos.VOUCHERS)
@@ -54,6 +73,86 @@ class CustomerOrderRepository private constructor(
     init {
         restoreActiveOrderIfAny()
         refreshCatalogAndPromos()
+        fetchOrderHistoryFromSupabase()
+    }
+
+    fun fetchOrderHistoryFromSupabase() {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val phone = userRepository.profile.value.phone
+                val rows = SupabaseCustomerClient.instance.fetchCustomerOrders(phone)
+                if (rows.isNotEmpty()) {
+                    val mapped = rows.mapNotNull { row ->
+                        try {
+                            val id = row["id"] as? String ?: return@mapNotNull null
+                            val statusStr = row["status"] as? String ?: "COMPLETED"
+                            val srvName = row["service_name"] as? String ?: "Pijat Tradisional"
+                            val duration = (row["duration_minutes"] as? Number)?.toInt() ?: 90
+                            val totalPrice = (row["total_price"] as? Number)?.toLong() ?: 150000L
+                            val rawAddress = row["address"] as? String ?: "Lokasi Pelanggan"
+                            val therapistName = row["therapist_name"] as? String ?: "Terapis Pilihan"
+                            val therapistPhone = row["therapist_phone"] as? String ?: ""
+                            val therapistId = row["therapist_id"] as? String ?: "TRP-1"
+
+                            val orderStatus = when (statusStr) {
+                                "COMPLETED", "FINISHED" -> CustomerOrderStatus.ORDER_RATED
+                                "CANCELLED" -> CustomerOrderStatus.CANCELLED
+                                "IN_SERVICE", "TREATMENT_IN_PROGRESS" -> CustomerOrderStatus.TREATMENT_IN_PROGRESS
+                                "ARRIVED" -> CustomerOrderStatus.THERAPIST_ARRIVED
+                                "ACCEPTED" -> CustomerOrderStatus.THERAPIST_ON_THE_WAY
+                                else -> CustomerOrderStatus.SEARCHING_THERAPIST
+                            }
+
+                            val service = _serviceCatalog.value.find { it.name.contains(srvName, ignoreCase = true) }
+                                ?: MassageService(
+                                    id = "srv-$id",
+                                    name = srvName,
+                                    category = "Pijat",
+                                    shortDescription = "",
+                                    fullDescription = "",
+                                    benefits = emptyList(),
+                                    durations = listOf(DurationOption(duration, totalPrice)),
+                                    iconEmoji = "💆"
+                                )
+
+                            val therapist = TherapistItem(
+                                id = therapistId,
+                                name = therapistName,
+                                gender = "Wanita",
+                                rating = 4.9,
+                                reviewCount = 120,
+                                ordersCompleted = 150,
+                                distanceKm = 2.4,
+                                etaMinutes = 10,
+                                certifications = listOf("BNSP Certified", "Traditional Massage Master"),
+                                avatarInitials = therapistName.take(2).uppercase()
+                            )
+
+                            CustomerOrder(
+                                id = id,
+                                service = service,
+                                durationMinutes = duration,
+                                location = CustomerLocation(title = "Lokasi Pesanan", address = rawAddress),
+                                status = orderStatus,
+                                assignedTherapist = therapist,
+                                basePrice = totalPrice,
+                                paymentMethod = CustomerPaymentMethod.PIJATIN_PAY
+                            )
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+
+                    if (mapped.isNotEmpty()) {
+                        val combined = (mapped + _orderHistory.value).distinctBy { it.id }
+                        _orderHistory.value = combined
+                        persistOrderHistory(combined)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun refreshCatalogAndPromos() {
@@ -514,7 +613,11 @@ class CustomerOrderRepository private constructor(
         )
 
         prefs?.edit()?.remove("ACTIVE_ORDER_ID")?.apply()
-        _orderHistory.update { history -> listOf(completed) + history }
+        _orderHistory.update { history ->
+            val updated = listOf(completed) + history.filterNot { it.id == completed.id }
+            persistOrderHistory(updated)
+            updated
+        }
         _activeOrder.value = null
         matchingJob?.cancel()
         timerJob?.cancel()

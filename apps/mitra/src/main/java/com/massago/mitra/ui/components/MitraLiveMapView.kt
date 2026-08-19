@@ -67,7 +67,7 @@ import kotlinx.coroutines.withContext
 
 @SuppressLint("MissingPermission")
 @Composable
-fun MapSimulationView(
+fun MitraLiveMapView(
     modifier: Modifier = Modifier,
     isOnline: Boolean = true,
     activeOrder: Order? = null,

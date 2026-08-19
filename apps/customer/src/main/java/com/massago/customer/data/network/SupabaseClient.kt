@@ -693,6 +693,37 @@ class SupabaseCustomerClient(
             false
         }
     }
+
+    /**
+     * Fetch order history for customer from Supabase
+     */
+    suspend fun fetchCustomerOrders(phone: String): List<Map<String, Any>> = withContext(Dispatchers.IO) {
+        try {
+            var cleanPhone = phone.replace("[^0-9]".toRegex(), "")
+            if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+            else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+            val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+
+            val url = if (cleanPhone.isNotBlank()) {
+                "$baseUrl/rest/v1/orders?or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone)&order=created_at.desc&limit=50"
+            } else {
+                "$baseUrl/rest/v1/orders?order=created_at.desc&limit=20"
+            }
+
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val json = response.body?.string() ?: return@withContext emptyList()
+                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                gson.fromJson(json, listType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 }
 
 

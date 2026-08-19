@@ -1,5 +1,9 @@
 package com.massago.customer.data.repository
 
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.massago.customer.CustomerApp
 import com.massago.customer.data.model.CustomerLocation
 import com.massago.customer.data.model.CustomerProfile
 import com.massago.customer.data.model.SavedAddress
@@ -10,64 +14,163 @@ import kotlinx.coroutines.flow.update
 
 class CustomerUserRepository private constructor() {
 
-    private val _profile = MutableStateFlow(CustomerProfile())
+    private val gson = Gson()
+
+    private val prefs by lazy {
+        try {
+            CustomerApp.instance.getSharedPreferences("massago_customer_user_prefs", Context.MODE_PRIVATE)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private val _profile = MutableStateFlow(loadPersistedProfile())
     val profile: StateFlow<CustomerProfile> = _profile.asStateFlow()
 
-    private val _currentLocation = MutableStateFlow(CustomerLocation())
+    private val _currentLocation = MutableStateFlow(loadPersistedLocation())
     val currentLocation: StateFlow<CustomerLocation> = _currentLocation.asStateFlow()
+
+    private fun loadPersistedProfile(): CustomerProfile {
+        val base = CustomerProfile()
+        val p = prefs ?: return base
+        val name = p.getString("USER_NAME", base.name) ?: base.name
+        val phone = p.getString("USER_PHONE", base.phone) ?: base.phone
+        val email = p.getString("USER_EMAIL", base.email) ?: base.email
+        val id = p.getString("USER_ID", base.id) ?: base.id
+        val balance = p.getLong("WALLET_BALANCE", base.walletBalance)
+
+        val savedAddressesJson = p.getString("SAVED_ADDRESSES_JSON", null)
+        val savedAddresses: List<SavedAddress> = if (!savedAddressesJson.isNullOrBlank()) {
+            try {
+                val listType = object : TypeToken<List<SavedAddress>>() {}.type
+                gson.fromJson(savedAddressesJson, listType) ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+
+        return base.copy(
+            name = name,
+            phone = phone,
+            email = email,
+            id = id,
+            walletBalance = balance,
+            savedAddresses = savedAddresses
+        )
+    }
+
+    private fun loadPersistedLocation(): CustomerLocation {
+        val base = CustomerLocation()
+        val p = prefs ?: return base
+        val locJson = p.getString("CURRENT_LOCATION_JSON", null)
+        return if (!locJson.isNullOrBlank()) {
+            try {
+                gson.fromJson(locJson, CustomerLocation::class.java) ?: base
+            } catch (_: Exception) {
+                base
+            }
+        } else {
+            base
+        }
+    }
+
+    private fun persistProfile(profile: CustomerProfile) {
+        prefs?.edit()?.apply {
+            putString("USER_NAME", profile.name)
+            putString("USER_PHONE", profile.phone)
+            putString("USER_EMAIL", profile.email)
+            putString("USER_ID", profile.id)
+            putLong("WALLET_BALANCE", profile.walletBalance)
+            putString("SAVED_ADDRESSES_JSON", gson.toJson(profile.savedAddresses))
+            apply()
+        }
+    }
+
+    private fun persistLocation(loc: CustomerLocation) {
+        prefs?.edit()?.apply {
+            putString("CURRENT_LOCATION_JSON", gson.toJson(loc))
+            apply()
+        }
+    }
 
     fun updateProfileInfo(name: String, phone: String, email: String = "", id: String = "") {
         _profile.update { current ->
-            current.copy(
+            val updated = current.copy(
                 name = if (name.isNotBlank()) name else current.name,
                 phone = if (phone.isNotBlank()) phone else current.phone,
                 email = if (email.isNotBlank()) email else current.email,
                 id = if (id.isNotBlank()) id else current.id
             )
+            persistProfile(updated)
+            updated
         }
     }
 
     fun setLocation(location: CustomerLocation) {
         _currentLocation.value = location
+        persistLocation(location)
     }
 
     fun selectAddress(address: SavedAddress) {
-        _currentLocation.value = CustomerLocation(
+        val newLoc = CustomerLocation(
             title = address.title,
             address = address.fullAddress,
             notes = address.note,
             latitude = address.latitude,
             longitude = address.longitude
         )
+        _currentLocation.value = newLoc
+        persistLocation(newLoc)
     }
 
     fun addAndSelectAddress(address: SavedAddress) {
         _profile.update { current ->
-            current.copy(savedAddresses = listOf(address) + current.savedAddresses.filterNot { it.id == address.id })
+            val updatedList = listOf(address) + current.savedAddresses.filterNot { it.id == address.id }
+            val updated = current.copy(savedAddresses = updatedList)
+            persistProfile(updated)
+            updated
         }
         selectAddress(address)
     }
 
+    fun addSavedAddress(address: SavedAddress) {
+        _profile.update { current ->
+            val updatedList = current.savedAddresses.filterNot { it.id == address.id } + address
+            val updated = current.copy(savedAddresses = updatedList)
+            persistProfile(updated)
+            updated
+        }
+    }
+
+    fun deleteSavedAddress(addressId: String) {
+        _profile.update { current ->
+            val updatedList = current.savedAddresses.filterNot { it.id == addressId }
+            val updated = current.copy(savedAddresses = updatedList)
+            persistProfile(updated)
+            updated
+        }
+    }
+
     fun topUpWallet(amount: Long) {
         _profile.update { current ->
-            current.copy(walletBalance = current.walletBalance + amount)
+            val updated = current.copy(walletBalance = current.walletBalance + amount)
+            persistProfile(updated)
+            updated
         }
     }
 
     fun deductWallet(amount: Long): Boolean {
         if (_profile.value.walletBalance >= amount) {
             _profile.update { current ->
-                current.copy(walletBalance = current.walletBalance - amount)
+                val updated = current.copy(walletBalance = current.walletBalance - amount)
+                persistProfile(updated)
+                updated
             }
             return true
         }
         return false
-    }
-
-    fun addSavedAddress(address: SavedAddress) {
-        _profile.update { current ->
-            current.copy(savedAddresses = current.savedAddresses + address)
-        }
     }
 
     suspend fun updateCustomerProfileInSupabase(

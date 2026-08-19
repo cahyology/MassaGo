@@ -64,7 +64,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.massago.mitra.data.model.DutyStatus
 import com.massago.mitra.data.model.OrderStatus
 import com.massago.mitra.ui.components.DailySummaryCard
-import com.massago.mitra.ui.components.MapSimulationView
+import com.massago.mitra.ui.components.MitraLiveMapView
 import com.massago.mitra.ui.components.StatusToggleSwitch
 import com.massago.mitra.ui.components.TopHeaderBar
 import com.massago.mitra.ui.theme.AmberGold
@@ -163,7 +163,7 @@ fun HomeScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // 1. Full-Screen Interactive Google Map (Dominates the screen)
-        MapSimulationView(
+        MitraLiveMapView(
             modifier = Modifier.fillMaxSize(),
             isOnline = therapistProfile.dutyStatus == DutyStatus.ONLINE,
             activeOrder = activeOrder,

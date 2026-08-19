@@ -312,23 +312,29 @@ fun OrderTrackingScreen(
                 actions = {
                     Surface(
                         modifier = Modifier
-                            .padding(end = 12.dp)
-                            .clip(RoundedCornerShape(20.dp))
+                            .padding(end = 14.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable { showSosDialog = true },
-                        color = Color(0xFFEF4444).copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, Color(0xFFEF4444))
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFECACA))
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "🚨", fontSize = 12.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFDC2626))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "SOS",
-                                color = Color(0xFFEF4444),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 12.sp
+                                color = Color(0xFFDC2626),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     }

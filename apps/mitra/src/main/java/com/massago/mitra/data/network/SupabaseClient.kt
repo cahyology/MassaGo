@@ -556,6 +556,45 @@ class SupabaseClient(
             false
         }
     }
+
+    /**
+     * Fetch order history for therapist from Supabase
+     */
+    suspend fun fetchTherapistOrders(therapistId: String, therapistPhone: String): List<Map<String, Any>> = withContext(Dispatchers.IO) {
+        try {
+            var cleanPhone = therapistPhone.replace("[^0-9]".toRegex(), "")
+            if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+            else if (cleanPhone.startsWith("8")) cleanPhone = "62" + cleanPhone
+            val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
+
+            val query = if (cleanPhone.isNotBlank() && therapistId.isNotBlank()) {
+                "or=(therapist_id.eq.$therapistId,therapist_phone.eq.$cleanPhone,therapist_phone.eq.$localPhone)"
+            } else if (therapistId.isNotBlank()) {
+                "therapist_id=eq.$therapistId"
+            } else if (cleanPhone.isNotBlank()) {
+                "or=(therapist_phone.eq.$cleanPhone,therapist_phone.eq.$localPhone)"
+            } else {
+                "limit=20"
+            }
+
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/orders?$query&order=created_at.desc&limit=50")
+                .get()
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val json = response.body?.string() ?: return@withContext emptyList()
+                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                gson.fromJson(json, listType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 }
 
 

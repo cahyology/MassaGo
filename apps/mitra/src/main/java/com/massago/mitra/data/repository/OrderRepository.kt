@@ -39,7 +39,23 @@ class OrderRepository private constructor(
     private val _activeOrder = MutableStateFlow<Order?>(null)
     val activeOrder: StateFlow<Order?> = _activeOrder.asStateFlow()
 
-    private val _orderHistory = MutableStateFlow<List<Order>>(emptyList())
+    private val gson = Gson()
+
+    private fun loadPersistedOrderHistory(): List<Order> {
+        val historyJson = prefs?.getString("MITRA_ORDER_HISTORY_JSON", null) ?: return emptyList()
+        return try {
+            val listType = object : TypeToken<List<Order>>() {}.type
+            gson.fromJson(historyJson, listType) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun persistOrderHistory(history: List<Order>) {
+        prefs?.edit()?.putString("MITRA_ORDER_HISTORY_JSON", gson.toJson(history))?.apply()
+    }
+
+    private val _orderHistory = MutableStateFlow<List<Order>>(loadPersistedOrderHistory())
     val orderHistory: StateFlow<List<Order>> = _orderHistory.asStateFlow()
 
     private val _incomingCountdownSeconds = MutableStateFlow(30)
@@ -58,6 +74,73 @@ class OrderRepository private constructor(
 
     init {
         restoreActiveOrderIfAny()
+        fetchOrderHistoryFromSupabase()
+    }
+
+    fun fetchOrderHistoryFromSupabase() {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val profile = therapistRepository.therapistProfile.value
+                val rows = SupabaseClient.instance.fetchTherapistOrders(profile.id, profile.phone)
+                if (rows.isNotEmpty()) {
+                    val mapped = rows.mapNotNull { row ->
+                        try {
+                            val id = row["id"] as? String ?: return@mapNotNull null
+                            val statusStr = row["status"] as? String ?: "COMPLETED"
+                            val srvName = row["service_name"] as? String ?: "Pijat Tradisional"
+                            val duration = (row["duration_minutes"] as? Number)?.toInt() ?: 90
+                            val totalPrice = (row["total_price"] as? Number)?.toLong() ?: 150000L
+                            val rawAddress = row["address"] as? String ?: "Lokasi Pelanggan"
+                            val custName = row["customer_name"] as? String ?: "Pelanggan MassaGo"
+                            val custPhone = row["customer_phone"] as? String ?: ""
+
+                            val orderStatus = when (statusStr) {
+                                "COMPLETED", "FINISHED" -> OrderStatus.REVIEW_SUBMITTED
+                                "CANCELLED" -> OrderStatus.COMPLETED_PAYMENT
+                                "IN_SERVICE", "TREATMENT_IN_PROGRESS" -> OrderStatus.TREATMENT_IN_PROGRESS
+                                "ARRIVED" -> OrderStatus.ARRIVED_AT_LOCATION
+                                "ACCEPTED" -> OrderStatus.ACCEPTED_ON_THE_WAY
+                                else -> OrderStatus.INCOMING
+                            }
+
+                            val matchedService = PredefinedServices.ALL_SERVICES.find {
+                                it.name.contains(srvName, ignoreCase = true)
+                            } ?: PredefinedServices.ALL_SERVICES[0]
+
+                            val netEarnings = (totalPrice * 0.80).toLong()
+                            val platformFee = (totalPrice * 0.20).toLong()
+
+                            Order(
+                                id = id,
+                                servicePackage = matchedService,
+                                client = ClientInfo(
+                                    id = "CLI-" + id.takeLast(4),
+                                    name = custName,
+                                    phone = custPhone,
+                                    gender = "Pelanggan",
+                                    address = rawAddress,
+                                    addressNotes = "Lokasi Pesanan Pelanggan",
+                                    distanceKm = 2.5,
+                                    travelEstimateMinutes = 10
+                                ),
+                                paymentMethod = PaymentMethod.CASH,
+                                status = orderStatus
+                            )
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+
+                    if (mapped.isNotEmpty()) {
+                        val combined = (mapped + _orderHistory.value).distinctBy { it.id }
+                        _orderHistory.value = combined
+                        persistOrderHistory(combined)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun restoreActiveOrderIfAny() {
@@ -510,7 +593,11 @@ class OrderRepository private constructor(
         therapistRepository.addEarnings(completedOrder.therapistNetEarnings + tip)
 
         // Add to history
-        _orderHistory.update { history -> listOf(completedOrder) + history }
+        _orderHistory.update { history ->
+            val updated = listOf(completedOrder) + history.filterNot { it.id == completedOrder.id }
+            persistOrderHistory(updated)
+            updated
+        }
         _activeOrder.value = completedOrder
     }
 

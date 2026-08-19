@@ -68,7 +68,7 @@ import com.massago.mitra.data.model.ClientInfo
 import com.massago.mitra.data.model.Order
 import com.massago.mitra.data.model.OrderStatus
 import com.massago.mitra.data.model.PredefinedServices
-import com.massago.mitra.ui.components.MapSimulationView
+import com.massago.mitra.ui.components.MitraLiveMapView
 import com.massago.mitra.ui.theme.AmberDark
 import com.massago.mitra.ui.theme.AmberGold
 import com.massago.mitra.ui.theme.EmeraldDark
@@ -329,7 +329,7 @@ fun ActiveOrderScreen(
                             .fillMaxWidth()
                             .weight(1f)
                     ) {
-                        MapSimulationView(
+                        MitraLiveMapView(
                             modifier = Modifier.fillMaxSize(),
                             isOnline = true,
                             activeOrder = currentOrder,
