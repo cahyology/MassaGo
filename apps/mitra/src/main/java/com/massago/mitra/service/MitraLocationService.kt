@@ -107,8 +107,10 @@ class MitraLocationService : Service() {
             ACTION_START -> {
                 startForeground(NOTIFICATION_ID, buildForegroundNotification())
                 requestLocationUpdates()
+                com.massago.mitra.data.repository.OrderRepository.instance.startRealtimeOrderPolling()
             }
             ACTION_STOP -> {
+                com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
                 stopLocationUpdates()
                 val currentProfile = therapistRepository.therapistProfile.value
                 CoroutineScope(Dispatchers.IO).launch {
@@ -191,6 +193,7 @@ class MitraLocationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
         stopLocationUpdates()
         val currentProfile = therapistRepository.therapistProfile.value
         CoroutineScope(Dispatchers.IO).launch {

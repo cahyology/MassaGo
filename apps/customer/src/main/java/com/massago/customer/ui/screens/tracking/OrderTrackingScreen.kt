@@ -288,7 +288,7 @@ fun OrderTrackingScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets.statusBars,
+                windowInsets = TopAppBarDefaults.windowInsets,
                 title = {
                     Column {
                         Text(
@@ -310,32 +310,39 @@ fun OrderTrackingScreen(
                     }
                 },
                 actions = {
-                    Surface(
+                    Box(
                         modifier = Modifier
-                            .padding(end = 14.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { showSosDialog = true },
-                        color = Color(0xFFFEF2F2),
-                        border = BorderStroke(1.dp, Color(0xFFFECACA))
+                            .padding(end = 16.dp)
+                            .height(32.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFFFEF2F2),
+                            border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { showSosDialog = true }
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFDC2626))
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "SOS",
-                                color = Color(0xFFDC2626),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.5.sp,
-                                letterSpacing = 0.5.sp
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFDC2626))
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "SOS",
+                                    color = Color(0xFFDC2626),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                         }
                     }
                 },

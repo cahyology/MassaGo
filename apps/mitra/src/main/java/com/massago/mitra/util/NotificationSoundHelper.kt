@@ -135,6 +135,7 @@ object NotificationSoundHelper {
             .setAutoCancel(true)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true)
             .setSound(defaultSoundUri)
             .setVibrate(longArrayOf(0, 500, 200, 500, 200, 600))
             .build()
