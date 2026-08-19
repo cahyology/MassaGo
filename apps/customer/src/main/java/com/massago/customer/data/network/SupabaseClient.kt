@@ -856,6 +856,64 @@ class SupabaseCustomerClient(
             false
         }
     }
+
+    /**
+     * Fetch Live Therapist Record for Live Status Checking (Online, Offline, Location, Radius)
+     */
+    suspend fun fetchTherapistLiveRecord(therapistId: String): Map<String, Any?>? = withContext(Dispatchers.IO) {
+        try {
+            var cleanPhone = therapistId.replace("[^0-9]".toRegex(), "")
+            if (cleanPhone.startsWith("0")) cleanPhone = "62" + cleanPhone.substring(1)
+            val query = if (cleanPhone.length >= 8) {
+                "or=(id.eq.$therapistId,phone.eq.$cleanPhone,phone.eq.${therapistId.trim()})"
+            } else {
+                "id=eq.$therapistId"
+            }
+
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/therapists?$query&select=*&limit=1")
+                .get()
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val body = response.body?.string() ?: return@withContext null
+                val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
+                val list: List<Map<String, Any?>> = gson.fromJson(body, type)
+                list.firstOrNull()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Fetch Active Order for a Therapist to check if they are currently BUSY handling another client
+     */
+    suspend fun fetchTherapistActiveOrder(therapistId: String): Map<String, Any?>? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/orders?therapist_id=eq.$therapistId&status=in.(ACCEPTED,ARRIVED,IN_SERVICE,TREATMENT_IN_PROGRESS)&order=created_at.desc&limit=1")
+                .get()
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val body = response.body?.string() ?: return@withContext null
+                val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
+                val list: List<Map<String, Any?>> = gson.fromJson(body, type)
+                list.firstOrNull()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }
 
 

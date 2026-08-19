@@ -413,3 +413,25 @@ data class FavoriteTherapist(
     val isOnline: Boolean = true,
     val phone: String = ""
 )
+
+enum class TherapistAvailabilityStatus {
+    CHECKING,
+    ONLINE_READY,
+    OFFLINE,
+    BUSY_HANDLING_OTHER,
+    OUT_OF_RANGE
+}
+
+data class TherapistLiveStatus(
+    val therapistId: String,
+    val name: String,
+    val isOnline: Boolean,
+    val dutyStatus: String,
+    val status: TherapistAvailabilityStatus,
+    val distanceKm: Double = 0.0,
+    val maxRadiusKm: Double = 10.0,
+    val isOutOfRange: Boolean = false,
+    val extraTravelSurcharge: Long = 0L,
+    val busyRemainingMinutes: Int? = null,
+    val activeOrderId: String? = null
+)

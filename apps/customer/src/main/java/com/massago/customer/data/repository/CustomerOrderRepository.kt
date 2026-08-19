@@ -370,7 +370,8 @@ class CustomerOrderRepository private constructor(
         paymentMethod: CustomerPaymentMethod,
         preferredTherapistId: String? = null,
         isRepeatOrder: Boolean = false,
-        scheduledTime: String? = null
+        scheduledTime: String? = null,
+        extraTravelSurcharge: Long = 0L
     ): CustomerOrder {
         val selectedAroma = CustomerPredefinedServices.AVAILABLE_AROMAS.find { it.id == aromaId }
             ?: CustomerPredefinedServices.AVAILABLE_AROMAS[0]
@@ -397,6 +398,7 @@ class CustomerOrderRepository private constructor(
             location = userRepository.currentLocation.value,
             status = CustomerOrderStatus.SEARCHING_THERAPIST,
             basePrice = basePrice,
+            travelFee = extraTravelSurcharge,
             discountAmount = discount,
             appliedVoucher = voucher,
             paymentMethod = paymentMethod,

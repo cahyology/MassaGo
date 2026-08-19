@@ -73,6 +73,24 @@ import com.massago.customer.ui.theme.TextSecondary
 import java.text.NumberFormat
 import java.util.Locale
 
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import com.massago.customer.data.repository.TherapistAvailabilityStatus
+import com.massago.customer.data.repository.TherapistLiveStatus
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckoutScreen(
@@ -88,6 +106,9 @@ fun CheckoutScreen(
     onOrderPlaced: () -> Unit,
     viewModel: CheckoutViewModel = viewModel()
 ) {
+    var activePreferredTherapistId by remember(preferredTherapistId) { mutableStateOf(preferredTherapistId) }
+    var activePreferredTherapistName by remember(preferredTherapistName) { mutableStateOf(preferredTherapistName) }
+
     val service = com.massago.customer.data.repository.CustomerOrderRepository.instance.serviceCatalog.value.find { it.id == serviceId }
         ?: CustomerPredefinedServices.SERVICES.find { it.id == serviceId }
         ?: CustomerPredefinedServices.SERVICES[0]
@@ -108,12 +129,29 @@ fun CheckoutScreen(
     val isScheduledLater by viewModel.isScheduledLater.collectAsState()
     val addressNote by viewModel.addressNote.collectAsState()
 
+    val therapistLiveStatus by viewModel.therapistLiveStatus.collectAsState()
+    val isSurchargeAccepted by viewModel.isSurchargeAccepted.collectAsState()
+
     LaunchedEffect(currentLocation.notes) {
         viewModel.initAddressNote(currentLocation.notes)
     }
 
+    // Trigger Live Status Checking when preferredTherapistId is present
+    LaunchedEffect(activePreferredTherapistId, currentLocation.latitude, currentLocation.longitude) {
+        if (activePreferredTherapistId.isNotBlank()) {
+            viewModel.checkTherapistAvailability(
+                therapistId = activePreferredTherapistId,
+                therapistNameFallback = activePreferredTherapistName,
+                custLat = currentLocation.latitude,
+                custLng = currentLocation.longitude
+            )
+        }
+    }
+
     var showVoucherSheet by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
+    var showLocationPickerSheet by remember { mutableStateOf(false) }
+    var showMapPinPickerDialog by remember { mutableStateOf(false) }
     var liveBanks by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var liveSettings by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
@@ -124,13 +162,18 @@ fun CheckoutScreen(
 
     val currencyFormat = NumberFormat.getNumberInstance(Locale("id", "ID"))
 
-    // Pricing calculation
+    // Pricing calculation with dynamic extra travel surcharge
     val basePrice = service.durations.find { it.minutes == durationMinutes }?.price ?: service.startingPrice
     val subtotal = basePrice + selectedAroma.extraFee
     val travelFee = 15000L
     val hygieneFee = 5000L
+    val extraTravelSurcharge = if (therapistLiveStatus?.isOutOfRange == true && isSurchargeAccepted) {
+        therapistLiveStatus?.extraTravelSurcharge ?: 0L
+    } else {
+        0L
+    }
     val discount = selectedVoucher?.calculateDiscount(subtotal) ?: 0L
-    val grandTotal = (subtotal + travelFee + hygieneFee - discount).coerceAtLeast(0L)
+    val grandTotal = (subtotal + travelFee + hygieneFee + extraTravelSurcharge - discount).coerceAtLeast(0L)
 
     var activePaymentUrl by remember { mutableStateOf<String?>(null) }
 
@@ -147,6 +190,10 @@ fun CheckoutScreen(
             }
         )
     }
+
+    val isTherapistOffline = activePreferredTherapistId.isNotBlank() &&
+            therapistLiveStatus?.status == TherapistAvailabilityStatus.OFFLINE &&
+            !isScheduledLater
 
     Scaffold(
         topBar = {
@@ -196,12 +243,12 @@ fun CheckoutScreen(
                     }
 
                     val scope = rememberCoroutineScope()
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     var isSubmitting by remember { mutableStateOf(false) }
 
                     Button(
+                        enabled = !isSubmitting && !isTherapistOffline,
                         onClick = {
-                            if (isSubmitting) return@Button
+                            if (isSubmitting || isTherapistOffline) return@Button
                             val orderId = "ORD-${System.currentTimeMillis()}"
                             viewModel.placeOrder(
                                 serviceId = service.id,
@@ -210,8 +257,8 @@ fun CheckoutScreen(
                                 focusAreas = focusAreas,
                                 pressureLevel = pressureLevel,
                                 genderPreference = genderPreference,
-                                preferredTherapistId = preferredTherapistId.ifBlank { null },
-                                isRepeatOrder = preferredTherapistId.isNotBlank(),
+                                preferredTherapistId = activePreferredTherapistId.ifBlank { null },
+                                isRepeatOrder = activePreferredTherapistId.isNotBlank(),
                                 scheduledTime = if (isScheduledLater) "SCHEDULED_LATER" else null
                             )
 
@@ -247,20 +294,26 @@ fun CheckoutScreen(
                                 onOrderPlaced()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isTherapistOffline) Color(0xFF94A3B8) else EmeraldPrimary,
+                            disabledContainerColor = Color(0xFFE2E8F0),
+                            disabledContentColor = Color(0xFF94A3B8)
+                        ),
                         shape = RoundedCornerShape(16.dp),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
                     ) {
                         Text(
-                            text = if (isSubmitting) "Menyiapkan..." else when (selectedPaymentMethod) {
-                                CustomerPaymentMethod.QRIS -> "Bayar via QRIS"
-                                CustomerPaymentMethod.VIRTUAL_ACCOUNT -> "Bayar via Virtual Account"
-                                CustomerPaymentMethod.PIJATIN_PAY -> "Bayar dg MassaGo Pay"
+                            text = if (isSubmitting) "Menyiapkan..." else when {
+                                isTherapistOffline -> "Terapis Offline"
+                                activePreferredTherapistId.isNotBlank() && therapistLiveStatus?.status == TherapistAvailabilityStatus.BUSY_HANDLING_OTHER && !isScheduledLater -> "Pesan & Antre Jadwal"
+                                selectedPaymentMethod == CustomerPaymentMethod.QRIS -> "Bayar via QRIS"
+                                selectedPaymentMethod == CustomerPaymentMethod.VIRTUAL_ACCOUNT -> "Bayar via VA"
+                                selectedPaymentMethod == CustomerPaymentMethod.PIJATIN_PAY -> "Bayar dg MassaGo Pay"
                                 else -> "Pesan Terapis (Tunai)"
                             },
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = if (isTherapistOffline) Color(0xFF64748B) else Color.White
                         )
                     }
                 }
@@ -275,63 +328,345 @@ fun CheckoutScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Preferred / Favorite Therapist Card
-            if (preferredTherapistName.isNotBlank() || preferredTherapistId.isNotBlank()) {
+            // Dynamic Live Status Card for Preferred / Favorite Therapist
+            if (activePreferredTherapistName.isNotBlank() || activePreferredTherapistId.isNotBlank()) {
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xFFFFFBEB),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, AmberGold),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(AmberGold.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
+                    val statusObj = therapistLiveStatus
+                    when (statusObj?.status) {
+                        TherapistAvailabilityStatus.CHECKING, null -> {
+                            // Loading state
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFFF8FAFC),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(text = "⭐", fontSize = 24.sp)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "Terapis Langganan Terpilih",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AmberGold
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = EmeraldPrimary,
+                                        strokeWidth = 2.5.dp
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AmberGold
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Text(
+                                        text = "Memeriksa status ketersediaan ${activePreferredTherapistName.ifBlank { "Terapis" }}...",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                        }
+
+                        TherapistAvailabilityStatus.OFFLINE -> {
+                            // Skenario 1: Terapis Sedang Offline
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFFFEF2F2),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFEF4444)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFFEE2E2)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = Color(0xFFDC2626),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "Terapis Sedang Offline",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF991B1B)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = Color(0xFFDC2626)
+                                                ) {
+                                                    Text(
+                                                        text = "OFFLINE",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = Color.White,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = "${activePreferredTherapistName} sedang tidak mengaktifkan aplikasi atau di luar jam kerja.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF7F1D1D),
+                                                fontSize = 11.5.sp
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Divider(color = Color(0xFFFCA5A5).copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
+                                        Button(
+                                            onClick = {
+                                                activePreferredTherapistId = ""
+                                                activePreferredTherapistName = ""
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.weight(1f),
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(text = "Cari Mitra Lain", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        Button(
+                                            onClick = { viewModel.setScheduledLater(true) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9)),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(text = "📅 Jadwalkan Nanti", color = Color(0xFF475569), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        TherapistAvailabilityStatus.BUSY_HANDLING_OTHER -> {
+                            // Skenario 3: Terapis Sedang Melayani Customer Lain
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFFFFFBEB),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, AmberGold),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(CircleShape)
+                                                .background(AmberGold.copy(alpha = 0.2f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Timer,
+                                                contentDescription = null,
+                                                tint = AmberGold,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "Terapis Sedang Bertugas",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF92400E)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = AmberGold
+                                                ) {
+                                                    Text(
+                                                        text = "IN SESSION",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = Color.White,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = "${activePreferredTherapistName} sedang melayani pelanggan lain. Estimasi selesai dalam ~${statusObj.busyRemainingMinutes ?: 25} menit lagi.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF78350F),
+                                                fontSize = 11.5.sp
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                activePreferredTherapistId = ""
+                                                activePreferredTherapistName = ""
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9)),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(text = "Ganti Terapis Standby", color = Color(0xFF475569), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        TherapistAvailabilityStatus.OUT_OF_RANGE -> {
+                            // Skenario 4: Di Luar Jangkauan Normal + Surcharge Ongkir
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFFFFF7ED),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF97316)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFFFEDD5)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DirectionsCar,
+                                                contentDescription = null,
+                                                tint = Color(0xFFEA580C),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Di Luar Jangkauan (${statusObj.distanceKm} km)",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF9A3412)
+                                            )
+                                            Text(
+                                                text = "Jarak ke ${activePreferredTherapistName} melebihi radius standar (maks ${statusObj.maxRadiusKm.toInt()} km).",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF7C2D12),
+                                                fontSize = 11.5.sp
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color.White,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFED7AA))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { viewModel.setSurchargeAccepted(!isSurchargeAccepted) }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Checkbox(
+                                                checked = isSurchargeAccepted,
+                                                onCheckedChange = { viewModel.setSurchargeAccepted(it) },
+                                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFFEA580C))
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Setuju Biaya Tambahan Jarak Jauh",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = Color(0xFF431407)
+                                                )
+                                                Text(
+                                                    text = "+Rp " + currencyFormat.format(statusObj.extraTravelSurcharge) + " (Kompensasi bensin mitra)",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFFEA580C),
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        TherapistAvailabilityStatus.ONLINE_READY -> {
+                            // Skenario 2: Terapis Siap & Online
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFFF0FDF4),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, EmeraldPrimary),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(EmeraldLight),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(text = "⭐", fontSize = 24.sp)
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "Terapis Langganan Siap",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = EmeraldDark
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = EmeraldPrimary
+                                            ) {
+                                                Text(
+                                                    text = "ONLINE & READY",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color.White,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                )
+                                            }
+                                        }
                                         Text(
-                                            text = "VIP RE-ORDER",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color.White,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                            text = activePreferredTherapistName.ifBlank { "Terapis Pilihan Anda" },
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF064E3B)
+                                        )
+                                        Text(
+                                            text = "Mitra sedang standby dalam jangkauan (${statusObj.distanceKm} km) dan siap berangkat.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF047857),
+                                            fontSize = 11.5.sp
                                         )
                                     }
                                 }
-                                Text(
-                                    text = preferredTherapistName.ifBlank { "Terapis Pilihan Anda" },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A)
-                                )
-                                Text(
-                                    text = "Pesanan akan langsung diprioritaskan ke terapis langganan Anda.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary,
-                                    fontSize = 11.5.sp
-                                )
                             }
                         }
                     }
@@ -389,19 +724,45 @@ fun CheckoutScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = EmeraldPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Lokasi Pemijatan",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Lokasi Pemijatan",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = EmeraldLight,
+                                modifier = Modifier.clickable { showLocationPickerSheet = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(imageVector = Icons.Default.Edit, contentDescription = null, tint = EmeraldDark, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Ubah Lokasi",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldDark
+                                    )
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -452,13 +813,13 @@ fun CheckoutScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Waktu Pemesanan",
+                                text = "Waktu Layanan",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -567,7 +928,7 @@ fun CheckoutScreen(
                         }
 
                         Text(
-                            text = if (selectedVoucher != null) "Ubah" else "Pilih",
+                            text = if (selectedVoucher != null) "Ganti" else "Pilih",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = EmeraldPrimary
@@ -592,8 +953,8 @@ fun CheckoutScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = selectedPaymentMethod.iconEmoji, fontSize = 22.sp)
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = selectedPaymentMethod.iconEmoji, fontSize = 24.sp)
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
                                     text = "Metode Pembayaran",
@@ -714,11 +1075,19 @@ fun CheckoutScreen(
                         PriceRow(label = "Tunjangan Transportasi Terapis", value = "Rp " + currencyFormat.format(travelFee))
                         PriceRow(label = "Biaya Jaminan Higienitas & Matras", value = "Rp " + currencyFormat.format(hygieneFee))
 
+                        if (extraTravelSurcharge > 0) {
+                            PriceRow(
+                                label = "Ongkos Jarak Jauh (Luar Radius)",
+                                value = "+Rp " + currencyFormat.format(extraTravelSurcharge),
+                                valueColor = Color(0xFFEA580C)
+                            )
+                        }
+
                         if (discount > 0) {
                             PriceRow(
                                 label = "Diskon Voucher (${selectedVoucher?.code})",
                                 value = "-Rp " + currencyFormat.format(discount),
-                                valueColor = AmberGold
+                                valueColor = EmeraldDark
                             )
                         }
 
@@ -731,7 +1100,7 @@ fun CheckoutScreen(
                         ) {
                             Text(
                                 text = "Total Pembayaran",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
@@ -747,6 +1116,35 @@ fun CheckoutScreen(
         }
     }
 
+    // Location Picker BottomSheet
+    if (showLocationPickerSheet) {
+        com.massago.customer.ui.screens.home.LocationPickerSheet(
+            savedAddresses = profile.savedAddresses,
+            currentLocation = currentLocation,
+            onSelectAddress = { addr ->
+                com.massago.customer.data.repository.CustomerUserRepository.instance.selectAddress(addr)
+                showLocationPickerSheet = false
+            },
+            onOpenMapPinPicker = {
+                showLocationPickerSheet = false
+                showMapPinPickerDialog = true
+            },
+            onDismiss = { showLocationPickerSheet = false }
+        )
+    }
+
+    // Interactive Google Maps Pinpoint Dialog
+    if (showMapPinPickerDialog) {
+        com.massago.customer.ui.screens.home.LocationPinPickerDialog(
+            initialLocation = currentLocation,
+            onConfirmLocation = { newAddr ->
+                com.massago.customer.data.repository.CustomerUserRepository.instance.addAndSelectAddress(newAddr)
+                showMapPinPickerDialog = false
+            },
+            onDismiss = { showMapPinPickerDialog = false }
+        )
+    }
+
     // Voucher Picker Modal Sheet
     if (showVoucherSheet) {
         ModalBottomSheet(
@@ -759,7 +1157,7 @@ fun CheckoutScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = "Pilih Voucher Promo",
+                    text = "Pilih Voucher Hemat",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )

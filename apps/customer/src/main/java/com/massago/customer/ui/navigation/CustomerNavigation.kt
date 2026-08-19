@@ -402,17 +402,13 @@ fun CustomerNavigation(
                 CustomerHistoryScreen(
                     onNavigateBack = { navController.navigate(CustomerScreen.Home.route) },
                     onReorder = { serviceId, therapistId, therapistName ->
-                        if (therapistId.isNotBlank()) {
-                            navController.navigate(
-                                CustomerScreen.Checkout.createRoute(
-                                    serviceId = serviceId,
-                                    preferredTherapistId = therapistId,
-                                    preferredTherapistName = therapistName
-                                )
+                        navController.navigate(
+                            CustomerScreen.Checkout.createRoute(
+                                serviceId = serviceId,
+                                preferredTherapistId = therapistId,
+                                preferredTherapistName = therapistName
                             )
-                        } else {
-                            navController.navigate(CustomerScreen.Detail.createRoute(serviceId))
-                        }
+                        )
                     }
                 )
             }
