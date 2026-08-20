@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken
 import com.massago.mitra.MassaGoApp
 import com.massago.mitra.data.model.ChatMessage
 import com.massago.mitra.data.network.SupabaseClient
+import com.massago.mitra.data.network.SupabaseConfig
 import com.massago.mitra.util.NotificationSoundHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,8 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
@@ -25,7 +24,6 @@ class ChatRepository private constructor() {
     private val scope = CoroutineScope(Dispatchers.IO)
     private var syncJob: Job? = null
     private val gson = Gson()
-    private val client = OkHttpClient()
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
@@ -49,53 +47,50 @@ class ChatRepository private constructor() {
     fun markChatScreenOpened() {
         isChatScreenActive = true
         _unreadCount.value = 0
+        lastSeenMessageCount = _messages.value.size
     }
 
     fun markChatScreenClosed() {
         isChatScreenActive = false
     }
 
-    fun initializeChatForOrder(clientName: String, orderId: String? = null) {
+    fun initializeChatForOrder(customerName: String, orderId: String) {
         currentOrderId = orderId
+        lastSeenMessageCount = 0
+        _unreadCount.value = 0
+        _messages.value = emptyList()
 
-        if (!orderId.isNullOrBlank()) {
-            startChatSync(orderId, clientName)
-        }
+        startChatSync(orderId)
     }
 
-    private fun startChatSync(orderId: String, clientName: String) {
+    private fun startChatSync(orderId: String) {
         syncJob?.cancel()
         syncJob = scope.launch {
-            while (currentOrderId == orderId) {
+            while (true) {
                 try {
-                    val orderData = SupabaseClient.instance.fetchOrder(orderId)
-                    val rawChatJson = orderData?.get("customer_id") as? String
-                    if (!rawChatJson.isNullOrBlank() && rawChatJson.startsWith("[")) {
-                        val type = object : TypeToken<List<ChatMessage>>() {}.type
-                        val remoteList: List<ChatMessage> = gson.fromJson(rawChatJson, type)
-                        if (remoteList.isNotEmpty() && remoteList.size != _messages.value.size) {
-                            val newMsgs = remoteList.filter { !it.isMe && it.timestampMillis > (System.currentTimeMillis() - 10000) }
-                            if (newMsgs.isNotEmpty() && remoteList.size > lastSeenMessageCount) {
-                                val latest = newMsgs.last()
-                                if (!isChatScreenActive) {
-                                    _unreadCount.value += newMsgs.size
+                    val orderMap = SupabaseClient.instance.fetchOrder(orderId)
+                    if (orderMap != null) {
+                        val rawChatJson = orderMap["customer_id"] as? String
+                        if (!rawChatJson.isNullOrBlank() && rawChatJson.startsWith("[")) {
+                            val listType = object : TypeToken<List<ChatMessage>>() {}.type
+                            val remoteMessages: List<ChatMessage> = gson.fromJson(rawChatJson, listType) ?: emptyList()
+
+                            if (remoteMessages.size > _messages.value.size) {
+                                val newIncoming = remoteMessages.drop(_messages.value.size)
+                                val hasNewCustomerMsg = newIncoming.any { it.isFromCustomer }
+
+                                if (hasNewCustomerMsg && !isChatScreenActive) {
+                                    _unreadCount.value = (_unreadCount.value + newIncoming.count { it.isFromCustomer })
+                                    NotificationSoundHelper.notifyNewChatMessage(MassaGoApp.instance, "Pelanggan", "Pesan baru diterima")
                                 }
-                                try {
-                                    NotificationSoundHelper.notifyNewChatMessage(
-                                        MassaGoApp.instance,
-                                        latest.senderName,
-                                        latest.message.ifBlank { "📷 [Foto dikirim]" }
-                                    )
-                                } catch (_: Exception) {}
                             }
-                            _messages.value = remoteList
-                            lastSeenMessageCount = remoteList.size
+                            _messages.value = remoteMessages
                         }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
-                delay(1500)
+                delay(2000)
             }
         }
     }
@@ -140,13 +135,13 @@ class ChatRepository private constructor() {
         }.toString()
 
         val request = Request.Builder()
-            .url("https://jrwkmedrrwvomyljdkpw.supabase.co/rest/v1/orders?id=eq.$orderId")
-            .addHeader("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impyd2ttZWRycnd2b215bGpka3B3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTcxNzQsImV4cCI6MjEwMjQ5MzE3NH0.UiN6JvJt23ds-3eID9J6wOtEt3pg4-farSwQIliPzuw")
-            .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impyd2ttZWRycnd2b215bGpka3B3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTcxNzQsImV4cCI6MjEwMjQ5MzE3NH0.UiN6JvJt23ds-3eID9J6wOtEt3pg4-farSwQIliPzuw")
-            .patch(bodyJson.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .url("${SupabaseConfig.URL}/rest/v1/orders?id=eq.$orderId")
+            .addHeader("apikey", SupabaseConfig.ANON_KEY)
+            .addHeader("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+            .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
             .build()
 
-        client.newCall(request).execute()
+        SupabaseClient.instance.client.newCall(request).execute().use { }
     }
 
     companion object {

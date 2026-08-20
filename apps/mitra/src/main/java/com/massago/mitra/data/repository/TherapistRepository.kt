@@ -1,18 +1,22 @@
 package com.massago.mitra.data.repository
 
 import android.content.Context
+import com.google.gson.JsonParser
 import com.massago.mitra.MassaGoApp
 import com.massago.mitra.data.model.DutyStatus
 import com.massago.mitra.data.model.TherapistProfile
 import com.massago.mitra.data.network.SupabaseClient
+import com.massago.mitra.data.network.SupabaseConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class TherapistRepository private constructor() {
@@ -24,6 +28,7 @@ class TherapistRepository private constructor() {
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    private var syncJob: Job? = null
 
     private val initialAutoAccept = prefs?.getBoolean("PREF_AUTO_ACCEPT", false) ?: false
     private val initialRadius = prefs?.getInt("PREF_MAX_RADIUS", 10) ?: 10
@@ -73,10 +78,11 @@ class TherapistRepository private constructor() {
     }
 
     fun startRealtimeAdminSync(context: Context? = null, fallbackId: String = "") {
-        scope.launch {
+        syncJob?.cancel()
+        syncJob = scope.launch {
             var loopCount = 0
             while (true) {
-                kotlinx.coroutines.delay(2500)
+                kotlinx.coroutines.delay(4000)
                 loopCount++
                 fetchPlatformCommission()
                 if (loopCount % 3 == 0) {
@@ -92,101 +98,107 @@ class TherapistRepository private constructor() {
 
                         val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
-                        val req = okhttp3.Request.Builder()
-                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications,preferred_client_gender")
-                            .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                            .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                        val req = Request.Builder()
+                            .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications,preferred_client_gender")
+                            .header("apikey", SupabaseConfig.ANON_KEY)
+                            .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                             .build()
 
-                        val res = okhttp3.OkHttpClient().newCall(req).execute()
-                        val bodyStr = res.body?.string() ?: ""
+                        SupabaseClient.instance.client.newCall(req).execute().use { res ->
+                            val bodyStr = res.body?.string() ?: ""
+                            val parsed = try {
+                                JsonParser.parseString(bodyStr)
+                            } catch (_: Exception) { null }
 
-                        if (res.isSuccessful && bodyStr.startsWith("[{")) {
-                            val arr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
-                            if (arr.size() > 0) {
-                                val obj = arr[0].asJsonObject
-                                val id = obj.get("id")?.asString ?: currentId
-                                val name = obj.get("name")?.asString ?: _therapistProfile.value.name
-                                val phone = obj.get("phone")?.asString ?: _therapistProfile.value.phone
-                                val gender = obj.get("gender")?.asString ?: _therapistProfile.value.gender
-                                val remoteIsOnline = obj.get("is_online")?.asBoolean ?: false
-                                val remoteDuty = obj.get("duty_status")?.asString ?: "OFFLINE"
-                                val remoteTier = obj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
-                                val remoteDeposit = obj.get("deposit_balance")?.asLong ?: 0L
-                                val remoteWallet = obj.get("wallet_balance")?.asLong ?: 0L
-                                val rating = obj.get("rating")?.asDouble ?: 5.0
-                                val orders = obj.get("orders_completed")?.asInt ?: 0
-                                val remoteLat = obj.get("latitude")?.asDouble ?: _therapistProfile.value.latitude
-                                val remoteLng = obj.get("longitude")?.asDouble ?: _therapistProfile.value.longitude
-                                val remoteGenderPref = obj.get("preferred_client_gender")?.asString ?: _therapistProfile.value.preferredClientGender
+                            if (res.isSuccessful && parsed != null && parsed.isJsonArray) {
+                                val arr = parsed.asJsonArray
+                                if (arr.size() > 0) {
+                                    val obj = arr[0].asJsonObject
+                                    val id = obj.get("id")?.asString ?: currentId
+                                    val name = obj.get("name")?.asString ?: _therapistProfile.value.name
+                                    val phone = obj.get("phone")?.asString ?: _therapistProfile.value.phone
+                                    val gender = obj.get("gender")?.asString ?: _therapistProfile.value.gender
+                                    val remoteIsOnline = obj.get("is_online")?.asBoolean ?: false
+                                    val remoteDuty = obj.get("duty_status")?.asString ?: "OFFLINE"
+                                    val remoteTier = obj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
+                                    val remoteDeposit = obj.get("deposit_balance")?.asLong ?: 0L
+                                    val remoteWallet = obj.get("wallet_balance")?.asLong ?: 0L
+                                    val rating = obj.get("rating")?.asDouble ?: 5.0
+                                    val orders = obj.get("orders_completed")?.asInt ?: 0
+                                    val remoteLat = obj.get("latitude")?.asDouble ?: _therapistProfile.value.latitude
+                                    val remoteLng = obj.get("longitude")?.asDouble ?: _therapistProfile.value.longitude
+                                    val remoteGenderPref = obj.get("preferred_client_gender")?.asString ?: _therapistProfile.value.preferredClientGender
 
-                                // Single Active Device Auto-Kick Check
-                                if (context != null) {
-                                    val certsArr = obj.getAsJsonArray("certifications")
-                                    var remoteDevId: String? = null
-                                    if (certsArr != null) {
-                                        for (elem in certsArr) {
-                                            val cStr = elem.asString
-                                            if (cStr.startsWith("dev:")) {
-                                                remoteDevId = cStr.substringAfter("dev:")
-                                                break
+                                    // Single Active Device Auto-Kick Check
+                                    if (context != null) {
+                                        val certsArr = obj.getAsJsonArray("certifications")
+                                        var remoteDevId: String? = null
+                                        if (certsArr != null) {
+                                            for (elem in certsArr) {
+                                                val cStr = elem.asString
+                                                if (cStr.startsWith("dev:")) {
+                                                    remoteDevId = cStr.substringAfter("dev:")
+                                                    break
+                                                }
                                             }
                                         }
-                                    }
-                                    val localDevId = AuthRepository.instance.getOrCreateDeviceId(context)
-                                    if (remoteDevId != null && remoteDevId.isNotBlank() && remoteDevId != localDevId) {
-                                        withContext(Dispatchers.Main) {
-                                            try {
-                                                val stopIntent = android.content.Intent(context, com.massago.mitra.service.MitraLocationService::class.java).apply {
-                                                    action = com.massago.mitra.service.MitraLocationService.ACTION_STOP
-                                                }
-                                                context.stopService(stopIntent)
-                                            } catch (_: Exception) {}
+                                        val localDevId = AuthRepository.instance.getOrCreateDeviceId(context)
+                                        if (remoteDevId != null && remoteDevId.isNotBlank() && remoteDevId != localDevId) {
+                                            withContext(Dispatchers.Main) {
+                                                try {
+                                                    val stopIntent = android.content.Intent(context, com.massago.mitra.service.MitraLocationService::class.java).apply {
+                                                        action = com.massago.mitra.service.MitraLocationService.ACTION_STOP
+                                                    }
+                                                    context.stopService(stopIntent)
+                                                } catch (_: Exception) {}
 
-                                            AuthRepository.instance.setSessionTerminatedMessage(
-                                                "Akun Mitra Anda baru saja masuk di perangkat lain. Sesi dan pelacakan GPS di perangkat ini telah diakhiri demi keamanan akun Anda."
-                                            )
-                                            val prefs = context.getSharedPreferences("massago_mitra_auth", Context.MODE_PRIVATE)
-                                            prefs.edit().clear().apply()
-                                            _therapistProfile.update { it.copy(dutyStatus = DutyStatus.OFFLINE) }
+                                                AuthRepository.instance.setSessionTerminatedMessage(
+                                                    "Akun Mitra Anda baru saja masuk di perangkat lain. Sesi dan pelacakan GPS di perangkat ini telah diakhiri demi keamanan akun Anda."
+                                                )
+                                                val authPrefs = context.getSharedPreferences("massago_mitra_auth", Context.MODE_PRIVATE)
+                                                authPrefs.edit().clear().apply()
+                                                _therapistProfile.update { it.copy(dutyStatus = DutyStatus.OFFLINE) }
+                                            }
+                                            return@launch
                                         }
-                                        break
-                                    }
-                                }
-
-                                val isVerif = !remoteTier.contains("Menunggu") && !remoteTier.contains("Review") && !remoteTier.contains("Tolak") && !remoteTier.contains("Nonaktif")
-
-                                _therapistProfile.update { curr ->
-                                    val finalDuty = if (!remoteIsOnline || !isVerif) {
-                                        DutyStatus.OFFLINE
-                                    } else if (remoteDuty == "ON_DUTY_BUSY") {
-                                        DutyStatus.ON_DUTY_BUSY
-                                    } else if (remoteDuty == "ONLINE") {
-                                        DutyStatus.ONLINE
-                                    } else {
-                                        DutyStatus.OFFLINE
                                     }
 
-                                    curr.copy(
-                                        id = id,
-                                        name = name,
-                                        phone = phone,
-                                        gender = gender,
-                                        dutyStatus = finalDuty,
-                                        tierBadge = remoteTier,
-                                        isVerified = isVerif,
-                                        depositBalance = remoteDeposit,
-                                        mainBalance = remoteWallet,
-                                        rating = rating,
-                                        totalOrdersCompleted = orders,
-                                        preferredClientGender = remoteGenderPref,
-                                        latitude = if (curr.latitude != 0.0 && curr.latitude != -7.7956) curr.latitude else remoteLat,
-                                        longitude = if (curr.longitude != 0.0 && curr.longitude != 110.3695) curr.longitude else remoteLng
-                                    )
+                                    val isVerif = !remoteTier.contains("Menunggu") && !remoteTier.contains("Review") && !remoteTier.contains("Tolak") && !remoteTier.contains("Nonaktif")
+
+                                    _therapistProfile.update { curr ->
+                                        val finalDuty = if (!remoteIsOnline || !isVerif) {
+                                            DutyStatus.OFFLINE
+                                        } else if (remoteDuty == "ON_DUTY_BUSY") {
+                                            DutyStatus.ON_DUTY_BUSY
+                                        } else if (remoteDuty == "ONLINE") {
+                                            DutyStatus.ONLINE
+                                        } else {
+                                            DutyStatus.OFFLINE
+                                        }
+
+                                        curr.copy(
+                                            id = id,
+                                            name = name,
+                                            phone = phone,
+                                            gender = gender,
+                                            dutyStatus = finalDuty,
+                                            tierBadge = remoteTier,
+                                            isVerified = isVerif,
+                                            depositBalance = remoteDeposit,
+                                            mainBalance = remoteWallet,
+                                            rating = rating,
+                                            totalOrdersCompleted = orders,
+                                            preferredClientGender = remoteGenderPref,
+                                            latitude = if (curr.latitude == -7.7956) remoteLat else curr.latitude,
+                                            longitude = if (curr.longitude == 110.3695) remoteLng else curr.longitude
+                                        )
+                                    }
                                 }
                             }
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         }
@@ -265,11 +277,7 @@ class TherapistRepository private constructor() {
                         val orderMitraMultiplier = (100 - orderRate) / 100.0
                         val netEarning = (rawPrice * orderMitraMultiplier).toLong()
 
-                        val createdAt = when (val c = orderMap["created_at"]) {
-                            is Number -> c.toLong()
-                            is String -> c.toDoubleOrNull()?.toLong() ?: 0L
-                            else -> 0L
-                        }
+                        val createdAt = SupabaseClient.parseIsoOrEpochMillis(orderMap["created_at"])
 
                         if (createdAt >= startOfTodayMillis) {
                             todayCount++
@@ -303,32 +311,35 @@ class TherapistRepository private constructor() {
 
                 val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
-                val req = okhttp3.Request.Builder()
-                    .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$phoneOrId,phone.eq.$clean,phone.eq.$localPhone)&select=*")
-                    .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                    .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                val req = Request.Builder()
+                    .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$phoneOrId,phone.eq.$clean,phone.eq.$localPhone)&select=*")
+                    .header("apikey", SupabaseConfig.ANON_KEY)
+                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
 
-                val client = okhttp3.OkHttpClient()
-                val res = client.newCall(req).execute()
-                val bodyStr = res.body?.string() ?: "[]"
+                SupabaseClient.instance.client.newCall(req).execute().use { res ->
+                    val bodyStr = res.body?.string() ?: "[]"
+                    val parsed = try {
+                        JsonParser.parseString(bodyStr)
+                    } catch (_: Exception) { null }
 
-                if (res.isSuccessful && bodyStr.startsWith("[{")) {
-                    val jsonArr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
-                    if (jsonArr.size() > 0) {
-                        val obj = jsonArr[0].asJsonObject
-                        val id = obj.get("id")?.asString ?: ""
-                        val name = obj.get("name")?.asString ?: ""
-                        val phone = obj.get("phone")?.asString ?: ""
-                        val gender = obj.get("gender")?.asString ?: "Pria"
-                        val tierBadge = obj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
-                        val deposit = obj.get("deposit_balance")?.asLong ?: 0L
-                        val wallet = obj.get("wallet_balance")?.asLong ?: 0L
-                        val rating = obj.get("rating")?.asDouble ?: 5.0
-                        val orders = obj.get("orders_completed")?.asInt ?: 0
+                    if (res.isSuccessful && parsed != null && parsed.isJsonArray) {
+                        val jsonArr = parsed.asJsonArray
+                        if (jsonArr.size() > 0) {
+                            val obj = jsonArr[0].asJsonObject
+                            val id = obj.get("id")?.asString ?: ""
+                            val name = obj.get("name")?.asString ?: ""
+                            val phone = obj.get("phone")?.asString ?: ""
+                            val gender = obj.get("gender")?.asString ?: "Pria"
+                            val tierBadge = obj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
+                            val deposit = obj.get("deposit_balance")?.asLong ?: 0L
+                            val wallet = obj.get("wallet_balance")?.asLong ?: 0L
+                            val rating = obj.get("rating")?.asDouble ?: 5.0
+                            val orders = obj.get("orders_completed")?.asInt ?: 0
 
-                        updateProfileInfo(id, name, phone, gender, tierBadge, deposit, wallet)
-                        _therapistProfile.update { it.copy(rating = rating, totalOrdersCompleted = orders) }
+                            updateProfileInfo(id, name, phone, gender, tierBadge, deposit, wallet)
+                            _therapistProfile.update { it.copy(rating = rating, totalOrdersCompleted = orders) }
+                        }
                     }
                 }
             } catch (_: Exception) {}
@@ -342,7 +353,7 @@ class TherapistRepository private constructor() {
         bankName: String = "",
         bankAccount: String = "",
         maxRadiusKm: Int = 15
-    ): Result<Boolean> = kotlinx.coroutines.withContext(Dispatchers.IO) {
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val currentId = _therapistProfile.value.id
             val phoneClean = normalizeIndonesianPhone(phone)
@@ -358,32 +369,32 @@ class TherapistRepository private constructor() {
                 }
             }
 
-            val req = okhttp3.Request.Builder()
-                .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?$queryTarget")
-                .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
-                .patch(okhttp3.RequestBody.create(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA, payload.toString()))
+            val req = Request.Builder()
+                .url("${SupabaseConfig.URL}/rest/v1/therapists?$queryTarget")
+                .header("apikey", SupabaseConfig.ANON_KEY)
+                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                .patch(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val client = okhttp3.OkHttpClient()
-            val res = client.newCall(req).execute()
-            if (res.isSuccessful) {
-                _therapistProfile.update {
-                    it.copy(
-                        name = name,
-                        phone = phoneClean,
-                        gender = gender,
-                        maxRadiusKm = maxRadiusKm
-                    )
+            SupabaseClient.instance.client.newCall(req).execute().use { res ->
+                if (res.isSuccessful) {
+                    _therapistProfile.update {
+                        it.copy(
+                            name = name,
+                            phone = phoneClean,
+                            gender = gender,
+                            maxRadiusKm = maxRadiusKm
+                        )
+                    }
+                    prefs?.edit()
+                        ?.putString("PREF_THERAPIST_NAME", name)
+                        ?.putString("PREF_THERAPIST_PHONE", phoneClean)
+                        ?.putInt("PREF_MAX_RADIUS", maxRadiusKm)
+                        ?.apply()
+                    Result.success(true)
+                } else {
+                    Result.failure(Exception("Gagal memperbarui profil di server"))
                 }
-                prefs?.edit()
-                    ?.putString("PREF_THERAPIST_NAME", name)
-                    ?.putString("PREF_THERAPIST_PHONE", phoneClean)
-                    ?.putInt("PREF_MAX_RADIUS", maxRadiusKm)
-                    ?.apply()
-                Result.success(true)
-            } else {
-                Result.failure(Exception("Gagal memperbarui profil di server"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -430,14 +441,14 @@ class TherapistRepository private constructor() {
                     if (clean.startsWith("0")) clean = "62" + clean.substring(1)
                     val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
-                    val req = okhttp3.Request.Builder()
-                        .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)")
-                        .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
-                        .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                        .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                    val req = Request.Builder()
+                        .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)")
+                        .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                        .header("apikey", SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                         .build()
 
-                    okhttp3.OkHttpClient().newCall(req).execute()
+                    SupabaseClient.instance.client.newCall(req).execute().use { }
                 } catch (_: Exception) {}
             }
         }
@@ -469,13 +480,13 @@ class TherapistRepository private constructor() {
                     val updateJson = com.google.gson.JsonObject().apply {
                         addProperty("preferred_client_gender", gender)
                     }.toString()
-                    val req = okhttp3.Request.Builder()
-                        .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?id=eq.$tId")
-                        .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
-                        .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                        .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                    val req = Request.Builder()
+                        .url("${SupabaseConfig.URL}/rest/v1/therapists?id=eq.$tId")
+                        .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                        .header("apikey", SupabaseConfig.ANON_KEY)
+                        .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                         .build()
-                    okhttp3.OkHttpClient().newCall(req).execute()
+                    SupabaseClient.instance.client.newCall(req).execute().use { }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -550,13 +561,13 @@ class TherapistRepository private constructor() {
                     addProperty("wallet_balance", mainBalance)
                     addProperty("deposit_balance", depositBalance)
                 }.toString()
-                val req = okhttp3.Request.Builder()
-                    .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?id=eq.$tId")
-                    .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
-                    .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                    .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                val req = Request.Builder()
+                    .url("${SupabaseConfig.URL}/rest/v1/therapists?id=eq.$tId")
+                    .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                    .header("apikey", SupabaseConfig.ANON_KEY)
+                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
-                okhttp3.OkHttpClient().newCall(req).execute()
+                SupabaseClient.instance.client.newCall(req).execute().use { }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

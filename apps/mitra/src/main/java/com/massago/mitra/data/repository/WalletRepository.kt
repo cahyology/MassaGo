@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken
 import com.massago.mitra.MassaGoApp
 import com.massago.mitra.data.model.TransactionType
 import com.massago.mitra.data.model.WalletTransaction
+import com.massago.mitra.data.network.SupabaseClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,11 +68,7 @@ class WalletRepository private constructor(
                 val netEarning = (rawPrice * (orderMitraPercent / 100.0)).toLong()
                 val platformFee = (rawPrice * (orderRate / 100.0)).toLong()
 
-                val createdAt = when (val c = orderMap["created_at"]) {
-                    is Number -> c.toLong()
-                    is String -> c.toDoubleOrNull()?.toLong() ?: System.currentTimeMillis()
-                    else -> System.currentTimeMillis()
-                }
+                val createdAt = SupabaseClient.parseIsoOrEpochMillis(orderMap["created_at"])
 
                 // Order Payout Earning
                 newTxList.add(

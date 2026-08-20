@@ -5,11 +5,14 @@ import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 object SupabaseConfig {
@@ -23,11 +26,19 @@ class SupabaseClient(
     private val anonKey: String = SupabaseConfig.ANON_KEY
 ) {
     val gson = Gson()
-    private val client: OkHttpClient = OkHttpClient.Builder()
+
+    val client: OkHttpClient = OkHttpClient.Builder()
+        .connectionPool(ConnectionPool(8, 2, TimeUnit.MINUTES))
+        .dispatcher(Dispatcher(Executors.newFixedThreadPool(8)).apply {
+            maxRequests = 16
+            maxRequestsPerHost = 8
+        })
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.NONE
         })
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
@@ -42,6 +53,30 @@ class SupabaseClient(
 
     companion object {
         val instance by lazy { SupabaseClient() }
+
+        fun parseIsoOrEpochMillis(raw: Any?): Long {
+            if (raw == null) return System.currentTimeMillis()
+            if (raw is Number) {
+                val v = raw.toLong()
+                return if (v < 10_000_000_000L) v * 1000L else v
+            }
+            if (raw is String) {
+                val num = raw.toDoubleOrNull()
+                if (num != null) {
+                    val v = num.toLong()
+                    return if (v < 10_000_000_000L) v * 1000L else v
+                }
+                try {
+                    val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }
+                    val clean = raw.take(19)
+                    val d = parser.parse(clean)
+                    if (d != null) return d.time
+                } catch (_: Exception) {}
+            }
+            return System.currentTimeMillis()
+        }
     }
 
     /**
@@ -75,8 +110,9 @@ class SupabaseClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -115,8 +151,9 @@ class SupabaseClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -130,17 +167,16 @@ class SupabaseClient(
         therapistId: String,
         latitude: Double,
         longitude: Double,
-        isOnline: Boolean,
-        dutyStatus: String = if (isOnline) "ONLINE" else "OFFLINE"
+        isOnline: Boolean
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             if (therapistId.isBlank()) return@withContext false
-            val effectiveOnline = isOnline || (dutyStatus == "ON_DUTY_BUSY" || dutyStatus == "ONLINE")
+            val dutyStr = if (isOnline) "ONLINE" else "OFFLINE"
             val bodyJson = JsonObject().apply {
                 addProperty("latitude", latitude)
                 addProperty("longitude", longitude)
-                addProperty("is_online", effectiveOnline)
-                addProperty("duty_status", dutyStatus)
+                addProperty("is_online", isOnline)
+                addProperty("duty_status", dutyStr)
             }.toString()
 
             var clean = therapistId.replace("[^0-9]".toRegex(), "")
@@ -159,8 +195,9 @@ class SupabaseClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -177,13 +214,14 @@ class SupabaseClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(body, type)
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(body, type)
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -205,14 +243,15 @@ class SupabaseClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val orders: List<Map<String, Any>> = gson.fromJson(body, type)
-                orders
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val orders: List<Map<String, Any>> = gson.fromJson(body, type)
+                    orders
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -234,8 +273,9 @@ class SupabaseClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -263,8 +303,9 @@ class SupabaseClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -297,8 +338,9 @@ class SupabaseClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -330,8 +372,9 @@ class SupabaseClient(
                 .post(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -348,14 +391,15 @@ class SupabaseClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext null
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                list.firstOrNull()
-            } else {
-                null
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(body, type)
+                    list.firstOrNull()
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -394,8 +438,9 @@ class SupabaseClient(
                 .post(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -412,13 +457,14 @@ class SupabaseClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(body, type)
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(body, type)
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -436,33 +482,29 @@ class SupabaseClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyMap()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                val map = mutableMapOf<String, String>()
-                list.forEach { item ->
-                    val key = item["key"] as? String
-                    val value = item["value"] as? String
-                    if (key != null && value != null) {
-                        map[key] = value
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyMap()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(body, type)
+                    val map = mutableMapOf<String, String>()
+                    list.forEach { item ->
+                        val key = item["key"] as? String
+                        val value = item["value"] as? String
+                        if (key != null && value != null) {
+                            map[key] = value
+                        }
                     }
+                    map
+                } else {
+                    emptyMap()
                 }
-                map
-            } else {
-                emptyMap()
             }
         } catch (e: Exception) {
             e.printStackTrace()
             emptyMap()
         }
     }
-
-    private val rawClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
 
     /**
      * Create DOKU Checkout Session URL for Mitra Deposit Top-Up
@@ -477,7 +519,7 @@ class SupabaseClient(
             val clientId = settings["doku_client_id"] ?: "BRN-0242-1787022128265"
             val secretKey = settings["doku_secret_key"] ?: "SK-v7V59V0cdjBexAHtq4Xd"
             val isProduction = settings["doku_is_production"] != "false"
-            val baseUrl = if (isProduction) "https://api.doku.com" else "https://api-sandbox.doku.com"
+            val dokuBaseUrl = if (isProduction) "https://api.doku.com" else "https://api-sandbox.doku.com"
             val targetPath = "/checkout/v1/payment"
             val invoiceNumber = "TOPUP-${System.currentTimeMillis()}-${therapistId.takeLast(4)}"
 
@@ -515,7 +557,7 @@ class SupabaseClient(
             val signature = android.util.Base64.encodeToString(mac.doFinal(signatureComponent.toByteArray(Charsets.UTF_8)), android.util.Base64.NO_WRAP)
 
             val req = Request.Builder()
-                .url("$baseUrl$targetPath")
+                .url("$dokuBaseUrl$targetPath")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Client-Id", clientId)
                 .addHeader("Request-Id", requestId)
@@ -524,13 +566,14 @@ class SupabaseClient(
                 .post(rawBody.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val res = rawClient.newCall(req).execute()
-            if (res.isSuccessful) {
-                val respBody = res.body?.string() ?: return@withContext null
-                val obj = gson.fromJson(respBody, JsonObject::class.java)
-                obj.getAsJsonObject("response")?.getAsJsonObject("payment")?.get("url")?.asString
-            } else {
-                null
+            client.newCall(req).execute().use { res ->
+                if (res.isSuccessful) {
+                    val respBody = res.body?.string() ?: return@withContext null
+                    val obj = gson.fromJson(respBody, JsonObject::class.java)
+                    obj.getAsJsonObject("response")?.getAsJsonObject("payment")?.get("url")?.asString
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -569,8 +612,10 @@ class SupabaseClient(
                 .url("$baseUrl/rest/v1/sos_emergency_logs")
                 .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -606,13 +651,14 @@ class SupabaseClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val json = response.body?.string() ?: return@withContext emptyList()
-                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(json, listType) ?: emptyList()
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val json = response.body?.string() ?: return@withContext emptyList()
+                    val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(json, listType) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -620,5 +666,3 @@ class SupabaseClient(
         }
     }
 }
-
-

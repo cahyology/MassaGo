@@ -12,6 +12,7 @@ import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -21,7 +22,10 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.massago.mitra.MainActivity
 import com.massago.mitra.R
+import com.massago.mitra.data.model.DutyStatus
+import com.massago.mitra.data.model.OrderStatus
 import com.massago.mitra.data.network.SupabaseClient
+import com.massago.mitra.data.repository.OrderRepository
 import com.massago.mitra.data.repository.TherapistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,21 +49,29 @@ class MitraLocationService : Service() {
         private const val CHANNEL_ID = "massago_mitra_location_channel"
 
         fun start(context: Context) {
-            val intent = Intent(context, MitraLocationService::class.java).apply {
-                action = ACTION_START
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                val intent = Intent(context, MitraLocationService::class.java).apply {
+                    action = ACTION_START
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, MitraLocationService::class.java).apply {
-                action = ACTION_STOP
+            try {
+                val intent = Intent(context, MitraLocationService::class.java).apply {
+                    action = ACTION_STOP
+                }
+                context.startService(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            context.startService(intent)
         }
     }
 
@@ -74,9 +86,9 @@ class MitraLocationService : Service() {
                 if (location != null) {
                     val lat = location.latitude
                     val lng = location.longitude
-                    
+
                     val currentProfile = therapistRepository.therapistProfile.value
-                    if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.OFFLINE && !therapistRepository.isPersistedOnline()) {
+                    if (currentProfile.dutyStatus == DutyStatus.OFFLINE && !therapistRepository.isPersistedOnline()) {
                         stopSelf()
                         return
                     }
@@ -95,8 +107,8 @@ class MitraLocationService : Service() {
                         }
 
                         // If active order is ACCEPTED_ON_THE_WAY, stream therapist GPS directly to the order in Supabase
-                        val activeOrder = com.massago.mitra.data.repository.OrderRepository.instance.activeOrder.value
-                        if (activeOrder != null && activeOrder.status == com.massago.mitra.data.model.OrderStatus.ACCEPTED_ON_THE_WAY) {
+                        val activeOrder = OrderRepository.instance.activeOrder.value
+                        if (activeOrder != null && activeOrder.status == OrderStatus.ACCEPTED_ON_THE_WAY) {
                             supabaseClient.updateTherapistGpsForOrder(activeOrder.id, lat, lng)
                         }
                     }
@@ -106,7 +118,7 @@ class MitraLocationService : Service() {
     }
 
     private var isExplicitStop = false
-    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
@@ -114,28 +126,33 @@ class MitraLocationService : Service() {
             ACTION_START -> {
                 isExplicitStop = false
                 try {
-                    val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                    val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
                     if (wakeLock == null) {
-                        wakeLock = powerManager?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "MassaGoMitra::LocationAndOrderWakeLock")?.apply {
+                        wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MassaGoMitra::LocationAndOrderWakeLock")?.apply {
                             setReferenceCounted(false)
-                            acquire(12 * 60 * 60 * 1000L) // 12 hours max standby
+                            acquire(4 * 60 * 60 * 1000L) // 4 hours max per lease
                         }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(
-                        NOTIFICATION_ID,
-                        buildForegroundNotification(),
-                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
-                    )
-                } else {
-                    startForeground(NOTIFICATION_ID, buildForegroundNotification())
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            buildForegroundNotification(),
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                        )
+                    } else {
+                        startForeground(NOTIFICATION_ID, buildForegroundNotification())
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
+
                 requestLocationUpdates()
-                com.massago.mitra.data.repository.OrderRepository.instance.startRealtimeOrderPolling()
+                OrderRepository.instance.startRealtimeOrderPolling()
             }
             ACTION_STOP -> {
                 isExplicitStop = true
@@ -146,19 +163,23 @@ class MitraLocationService : Service() {
                     wakeLock = null
                 } catch (_: Exception) {}
 
-                com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
+                OrderRepository.instance.stopRealtimeOrderPolling()
                 stopLocationUpdates()
                 val currentProfile = therapistRepository.therapistProfile.value
                 val identifier = currentProfile.id.ifBlank { currentProfile.phone }
                 CoroutineScope(Dispatchers.IO).launch {
-                    supabaseClient.updateLocationAndDuty(
-                        therapistId = identifier,
-                        latitude = currentProfile.latitude,
-                        longitude = currentProfile.longitude,
-                        isOnline = false
-                    )
+                    if (identifier.isNotBlank()) {
+                        supabaseClient.updateLocationAndDuty(
+                            therapistId = identifier,
+                            latitude = currentProfile.latitude,
+                            longitude = currentProfile.longitude,
+                            isOnline = false
+                        )
+                    }
                 }
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                try {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } catch (_: Exception) {}
                 stopSelf()
             }
         }
@@ -167,30 +188,21 @@ class MitraLocationService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // Keep foreground service alive and listening for orders even when app is swiped away from recent apps
-        val currentProfile = therapistRepository.therapistProfile.value
-        if (currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.ONLINE || currentProfile.dutyStatus == com.massago.mitra.data.model.DutyStatus.ON_DUTY_BUSY || therapistRepository.isPersistedOnline()) {
-            val restartServiceIntent = Intent(applicationContext, MitraLocationService::class.java).apply {
-                setPackage(packageName)
-                action = ACTION_START
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(restartServiceIntent)
-            } else {
-                startService(restartServiceIntent)
-            }
-        }
+        // With stopWithTask="false" and START_STICKY, Android keeps foreground service running.
+        // We do NOT call startForegroundService here to avoid ForegroundServiceStartNotAllowedException on Android 12+/14+.
     }
 
     @SuppressLint("MissingPermission")
     private fun requestLocationUpdates() {
         try {
+            // Adaptive location request: 5000ms interval for smooth tracking without overheating/battery drain
             val locationRequest = LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY,
-                1500L // 1.5 seconds interval for smooth realtime GPS navigation streaming
+                5000L
             ).apply {
-                setMinUpdateIntervalMillis(1000L)
-                setMinUpdateDistanceMeters(0f) // continuous displacement streaming
+                setMinUpdateIntervalMillis(3000L)
+                setMinUpdateDistanceMeters(3f)
+                setWaitForAccurateLocation(false)
             }.build()
 
             fusedLocationClient.requestLocationUpdates(
@@ -248,7 +260,7 @@ class MitraLocationService : Service() {
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager?.createNotificationChannel(channel)
         }
     }
 
@@ -264,16 +276,19 @@ class MitraLocationService : Service() {
         } catch (_: Exception) {}
 
         if (isExplicitStop) {
-            com.massago.mitra.data.repository.OrderRepository.instance.stopRealtimeOrderPolling()
+            OrderRepository.instance.stopRealtimeOrderPolling()
             stopLocationUpdates()
             val currentProfile = therapistRepository.therapistProfile.value
-            CoroutineScope(Dispatchers.IO).launch {
-                supabaseClient.updateLocationAndDuty(
-                    therapistId = currentProfile.id,
-                    latitude = currentProfile.latitude,
-                    longitude = currentProfile.longitude,
-                    isOnline = false
-                )
+            val identifier = currentProfile.id.ifBlank { currentProfile.phone }
+            if (identifier.isNotBlank()) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    supabaseClient.updateLocationAndDuty(
+                        therapistId = identifier,
+                        latitude = currentProfile.latitude,
+                        longitude = currentProfile.longitude,
+                        isOnline = false
+                    )
+                }
             }
         }
         serviceScope.cancel()

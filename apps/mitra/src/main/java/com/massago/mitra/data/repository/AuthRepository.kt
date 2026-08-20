@@ -2,6 +2,7 @@ package com.massago.mitra.data.repository
 
 import android.content.Context
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.massago.mitra.data.model.TherapistProfile
 import com.massago.mitra.data.network.SupabaseClient
 import com.massago.mitra.data.network.SupabaseConfig
@@ -78,7 +79,6 @@ class AuthRepository private constructor() {
         val savedLogin = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         val savedPhone = prefs.getString(KEY_PHONE, "") ?: ""
         val savedId = prefs.getString(KEY_USER_ID, "") ?: ""
-        val savedName = prefs.getString(KEY_NAME, "Mitra Terapis") ?: "Mitra Terapis"
         _isLoggedIn.value = savedLogin
         if (savedPhone.isNotBlank() || savedId.isNotBlank()) {
             therapistRepo.fetchTherapistProfileFromSupabase(savedPhone.ifEmpty { savedId })
@@ -110,94 +110,116 @@ class AuthRepository private constructor() {
             val cleanPhone = normalizeIndonesianPhone(rawPhone)
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
             val intlPhone = "+" + cleanPhone
+            val lastDigits = if (cleanPhone.length >= 8) cleanPhone.takeLast(8) else cleanPhone
 
             val req = Request.Builder()
-                .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)&select=id,name,phone,gender,tier_badge,deposit_balance,wallet_balance,certifications")
+                .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone,phone.ilike.*$lastDigits*)&select=id,name,phone,gender,tier_badge,deposit_balance,wallet_balance,certifications")
                 .header("apikey", SupabaseConfig.ANON_KEY)
                 .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .build()
 
-            val client = okhttp3.OkHttpClient()
-            val res = client.newCall(req).execute()
-            val bodyStr = res.body?.string() ?: "[]"
+            var bodyStr = "[]"
+            SupabaseClient.instance.client.newCall(req).execute().use { res ->
+                bodyStr = res.body?.string() ?: "[]"
+            }
 
-            if (res.isSuccessful && bodyStr.startsWith("[{")) {
-                val jsonArr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
-                if (jsonArr.size() > 0) {
-                    val userObj = jsonArr[0].asJsonObject
-                    val certsArray = userObj.getAsJsonArray("certifications")
-                    val expectedHash = hashPassword(password)
-                    val expectedPrefix = "pwd:$expectedHash"
+            val parsed = try {
+                JsonParser.parseString(bodyStr)
+            } catch (_: Exception) { null }
 
-                    var hasPasswordEntry = false
-                    var isPassMatch = false
-                    val existingCertsList = mutableListOf<String>()
-
-                    if (certsArray != null) {
-                        for (element in certsArray) {
-                            val str = element.asString
-                            if (str.startsWith("pwd:")) {
-                                hasPasswordEntry = true
-                                if (str == expectedPrefix) {
-                                    isPassMatch = true
-                                }
-                            } else if (!str.startsWith("dev:")) {
-                                existingCertsList.add(str)
-                            }
+            var userObj: JsonObject? = null
+            if (parsed != null && parsed.isJsonArray && parsed.asJsonArray.size() > 0) {
+                val jsonArr = parsed.asJsonArray
+                for (elem in jsonArr) {
+                    if (elem.isJsonObject) {
+                        val obj = elem.asJsonObject
+                        val dbPhone = obj.get("phone")?.asString ?: ""
+                        val cleanDb = dbPhone.replace("[^0-9]".toRegex(), "")
+                        if (cleanDb.endsWith(lastDigits) || cleanDb == cleanPhone || cleanDb == localPhone) {
+                            userObj = obj
+                            break
                         }
-                    }
-
-                    // Verifikasi password asli: jika terapis sudah membuat password, harus cocok dengan hash SHA-256
-                    val isPassValid = if (hasPasswordEntry) isPassMatch else true
-
-                    if (isPassValid) {
-                        val userId = userObj.get("id")?.asString ?: ""
-                        val therapistName = userObj.get("name")?.asString ?: "Mitra Terapis"
-                        val gender = userObj.get("gender")?.asString ?: "Pria"
-                        val tierBadge = userObj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
-                        val deposit = userObj.get("deposit_balance")?.asLong ?: 0L
-                        val wallet = userObj.get("wallet_balance")?.asLong ?: 0L
-                        val deviceId = getOrCreateDeviceId(context)
-
-                        // Update device session & password hash in Supabase certifications array
-                        val updatedCertsArray = com.google.gson.JsonArray().apply {
-                            for (c in existingCertsList) {
-                                add(c)
-                            }
-                            add(expectedPrefix)
-                            add("dev:$deviceId")
-                        }
-
-                        try {
-                            val patchPayload = JsonObject().apply {
-                                add("certifications", updatedCertsArray)
-                            }.toString()
-                            val patchReq = Request.Builder()
-                                .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)")
-                                .header("apikey", SupabaseConfig.ANON_KEY)
-                                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
-                                .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
-                                .build()
-                            client.newCall(patchReq).execute()
-                        } catch (_: Exception) {}
-
-                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        prefs.edit()
-                            .putBoolean(KEY_IS_LOGGED_IN, true)
-                            .putString(KEY_PHONE, cleanPhone)
-                            .putString(KEY_USER_ID, userId)
-                            .putString(KEY_NAME, therapistName)
-                            .apply()
-
-                        _isLoggedIn.value = true
-                        therapistRepo.updateProfileInfo(userId, therapistName, cleanPhone, gender, tierBadge, deposit, wallet)
-                        therapistRepo.startRealtimeAdminSync(context, userId.ifEmpty { cleanPhone })
-                        return@withContext Result.success(true)
-                    } else {
-                        return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))
                     }
                 }
+                if (userObj == null && jsonArr.size() > 0) {
+                    userObj = jsonArr[0].asJsonObject
+                }
             }
+
+            if (userObj != null) {
+                val certsArray = userObj.getAsJsonArray("certifications")
+                val expectedHash = hashPassword(password)
+                val expectedPrefix = "pwd:$expectedHash"
+
+                var hasPasswordEntry = false
+                var isPassMatch = false
+                val existingCertsList = mutableListOf<String>()
+
+                if (certsArray != null) {
+                    for (element in certsArray) {
+                        val str = element.asString
+                        if (str.startsWith("pwd:")) {
+                            hasPasswordEntry = true
+                            if (str == expectedPrefix) {
+                                isPassMatch = true
+                            }
+                        } else if (!str.startsWith("dev:")) {
+                            existingCertsList.add(str)
+                        }
+                    }
+                }
+
+                // Verifikasi password asli: jika terapis sudah membuat password, harus cocok dengan hash SHA-256
+                val isPassValid = if (hasPasswordEntry) isPassMatch else true
+
+                if (isPassValid) {
+                    val userId = userObj.get("id")?.asString ?: ""
+                    val therapistName = userObj.get("name")?.asString ?: "Mitra Terapis"
+                    val gender = userObj.get("gender")?.asString ?: "Pria"
+                    val tierBadge = userObj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
+                    val deposit = userObj.get("deposit_balance")?.asLong ?: 0L
+                    val wallet = userObj.get("wallet_balance")?.asLong ?: 0L
+                    val deviceId = getOrCreateDeviceId(context)
+
+                    // Update device session & password hash in Supabase certifications array
+                    val updatedCertsArray = com.google.gson.JsonArray().apply {
+                        for (c in existingCertsList) {
+                            add(c)
+                        }
+                        add(expectedPrefix)
+                        add("dev:$deviceId")
+                    }
+
+                    try {
+                        val patchPayload = JsonObject().apply {
+                            add("certifications", updatedCertsArray)
+                        }.toString()
+                        val patchReq = Request.Builder()
+                            .url("${SupabaseConfig.URL}/rest/v1/therapists?id=eq.$userId")
+                            .header("apikey", SupabaseConfig.ANON_KEY)
+                            .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                            .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                            .build()
+                        SupabaseClient.instance.client.newCall(patchReq).execute().use { }
+                    } catch (_: Exception) {}
+
+                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean(KEY_IS_LOGGED_IN, true)
+                        .putString(KEY_PHONE, cleanPhone)
+                        .putString(KEY_USER_ID, userId)
+                        .putString(KEY_NAME, therapistName)
+                        .apply()
+
+                    _isLoggedIn.value = true
+                    therapistRepo.updateProfileInfo(userId, therapistName, cleanPhone, gender, tierBadge, deposit, wallet)
+                    therapistRepo.startRealtimeAdminSync(context, userId.ifEmpty { cleanPhone })
+                    return@withContext Result.success(true)
+                } else {
+                    return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))
+                }
+            }
+
             Result.failure(Exception("Nomor WhatsApp Mitra belum terdaftar. Silakan daftar menjadi mitra baru."))
         } catch (e: Exception) {
             Result.failure(Exception("Gagal menghubungi server: ${e.message}"))
@@ -230,16 +252,16 @@ class AuthRepository private constructor() {
                 .post(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val rawClient = okhttp3.OkHttpClient()
-            val res = rawClient.newCall(req).execute()
-            val respStr = res.body?.string() ?: ""
+            SupabaseClient.instance.client.newCall(req).execute().use { res ->
+                val respStr = res.body?.string() ?: ""
 
-            if (res.isSuccessful && respStr.contains("\"status\":true")) {
-                Result.success("OTP berhasil dikirim ke WhatsApp $clean")
-            } else if (respStr.contains("disconnected device")) {
-                Result.success("Fonnte disconnected di dashboard. Kode OTP Anda: $code")
-            } else {
-                Result.success("Kode OTP Anda: $code")
+                if (res.isSuccessful && respStr.contains("\"status\":true")) {
+                    Result.success("OTP berhasil dikirim ke WhatsApp $clean")
+                } else if (respStr.contains("disconnected device")) {
+                    Result.success("Fonnte disconnected di dashboard. Kode OTP Anda: $code")
+                } else {
+                    Result.success("Kode OTP Anda: $code")
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -270,21 +292,24 @@ class AuthRepository private constructor() {
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
 
-                val client = okhttp3.OkHttpClient()
-                val checkRes = client.newCall(checkReq).execute()
-                val checkStr = checkRes.body?.string() ?: "[]"
-                val isRegistered = checkStr.startsWith("[{")
+                SupabaseClient.instance.client.newCall(checkReq).execute().use { checkRes ->
+                    val checkStr = checkRes.body?.string() ?: "[]"
+                    val parsed = try {
+                        JsonParser.parseString(checkStr)
+                    } catch (_: Exception) { null }
+                    val isRegistered = parsed != null && parsed.isJsonArray && parsed.asJsonArray.size() > 0
 
-                if (isRegistered) {
-                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    prefs.edit()
-                        .putBoolean(KEY_IS_LOGGED_IN, true)
-                        .putString(KEY_PHONE, cleanPhone)
-                        .putString(KEY_USER_ID, "TRP-" + cleanPhone.takeLast(4))
-                        .apply()
-                    _isLoggedIn.value = true
+                    if (isRegistered) {
+                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean(KEY_IS_LOGGED_IN, true)
+                            .putString(KEY_PHONE, cleanPhone)
+                            .putString(KEY_USER_ID, "TRP-" + cleanPhone.takeLast(4))
+                            .apply()
+                        _isLoggedIn.value = true
+                    }
+                    Result.success(isRegistered)
                 }
-                Result.success(isRegistered)
             } else {
                 Result.failure(Exception("Kode OTP salah atau telah kedaluwarsa"))
             }
@@ -342,8 +367,7 @@ class AuthRepository private constructor() {
                 .post(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val client = okhttp3.OkHttpClient()
-            client.newCall(req).execute()
+            SupabaseClient.instance.client.newCall(req).execute().use { }
 
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit()
@@ -390,9 +414,10 @@ class AuthRepository private constructor() {
                 .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .build()
 
-            val client = okhttp3.OkHttpClient()
-            val getRes = client.newCall(getReq).execute()
-            val getBody = getRes.body?.string() ?: "[]"
+            var getBody = "[]"
+            SupabaseClient.instance.client.newCall(getReq).execute().use { getRes ->
+                getBody = getRes.body?.string() ?: "[]"
+            }
 
             val newSpecsArray = com.google.gson.JsonArray()
             var therapistId = ""
@@ -402,24 +427,26 @@ class AuthRepository private constructor() {
             var depositBal = 0L
             var walletBal = 0L
 
-            if (getBody.startsWith("[{")) {
-                val jsonArr = com.google.gson.JsonParser.parseString(getBody).asJsonArray
-                if (jsonArr.size() > 0) {
-                    val obj = jsonArr[0].asJsonObject
-                    therapistId = obj.get("id")?.asString ?: ""
-                    therapistName = obj.get("name")?.asString ?: "Mitra Terapis"
-                    therapistGender = obj.get("gender")?.asString ?: "Pria"
-                    tierBadge = obj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
-                    depositBal = obj.get("deposit_balance")?.asLong ?: 0L
-                    walletBal = obj.get("wallet_balance")?.asLong ?: 0L
+            val parsedGet = try {
+                JsonParser.parseString(getBody)
+            } catch (_: Exception) { null }
 
-                    val certs = obj.getAsJsonArray("certifications")
-                    if (certs != null) {
-                        for (c in certs) {
-                            val s = c.asString
-                            if (!s.startsWith("pwd:")) {
-                                newSpecsArray.add(s)
-                            }
+            if (parsedGet != null && parsedGet.isJsonArray && parsedGet.asJsonArray.size() > 0) {
+                val jsonArr = parsedGet.asJsonArray
+                val obj = jsonArr[0].asJsonObject
+                therapistId = obj.get("id")?.asString ?: ""
+                therapistName = obj.get("name")?.asString ?: "Mitra Terapis"
+                therapistGender = obj.get("gender")?.asString ?: "Pria"
+                tierBadge = obj.get("tier_badge")?.asString ?: "Mitra Terverifikasi"
+                depositBal = obj.get("deposit_balance")?.asLong ?: 0L
+                walletBal = obj.get("wallet_balance")?.asLong ?: 0L
+
+                val certs = obj.getAsJsonArray("certifications")
+                if (certs != null) {
+                    for (c in certs) {
+                        val s = c.asString
+                        if (!s.startsWith("pwd:")) {
+                            newSpecsArray.add(s)
                         }
                     }
                 }
@@ -437,31 +464,32 @@ class AuthRepository private constructor() {
                 .patch(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val patchRes = client.newCall(patchReq).execute()
-            if (patchRes.isSuccessful) {
-                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                prefs.edit()
-                    .putBoolean(KEY_IS_LOGGED_IN, true)
-                    .putString(KEY_PHONE, cleanPhone)
-                    .putString(KEY_USER_ID, therapistId)
-                    .putString(KEY_NAME, therapistName)
-                    .putString("PREF_TIER_BADGE", tierBadge)
-                    .apply()
+            SupabaseClient.instance.client.newCall(patchReq).execute().use { patchRes ->
+                if (patchRes.isSuccessful) {
+                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean(KEY_IS_LOGGED_IN, true)
+                        .putString(KEY_PHONE, cleanPhone)
+                        .putString(KEY_USER_ID, therapistId)
+                        .putString(KEY_NAME, therapistName)
+                        .putString("PREF_TIER_BADGE", tierBadge)
+                        .apply()
 
-                _isLoggedIn.value = true
-                therapistRepo.updateProfileInfo(
-                    id = therapistId,
-                    name = therapistName,
-                    phone = cleanPhone,
-                    gender = therapistGender,
-                    tierBadge = tierBadge,
-                    depositBalance = depositBal,
-                    walletBalance = walletBal
-                )
-                therapistRepo.fetchTherapistProfileFromSupabase(cleanPhone)
-                Result.success(true)
-            } else {
-                Result.failure(Exception("Gagal memperbarui password di server"))
+                    _isLoggedIn.value = true
+                    therapistRepo.updateProfileInfo(
+                        id = therapistId,
+                        name = therapistName,
+                        phone = cleanPhone,
+                        gender = therapistGender,
+                        tierBadge = tierBadge,
+                        depositBalance = depositBal,
+                        walletBalance = walletBal
+                    )
+                    therapistRepo.fetchTherapistProfileFromSupabase(cleanPhone)
+                    Result.success(true)
+                } else {
+                    Result.failure(Exception("Gagal memperbarui password di server"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -484,8 +512,6 @@ class AuthRepository private constructor() {
             val cleanPhone = normalizeIndonesianPhone(phone)
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
 
-            val client = okhttp3.OkHttpClient()
-
             // 1. Delete therapist record from Supabase
             val queryParam = if (userId.isNotBlank()) "or=(id.eq.$userId,phone.eq.$cleanPhone,phone.eq.$localPhone)" else "or=(phone.eq.$cleanPhone,phone.eq.$localPhone)"
             val delReq = Request.Builder()
@@ -495,7 +521,7 @@ class AuthRepository private constructor() {
                 .delete()
                 .build()
 
-            client.newCall(delReq).execute()
+            SupabaseClient.instance.client.newCall(delReq).execute().use { }
 
             // 2. Delete related orders
             val delOrdersReq = Request.Builder()
@@ -505,7 +531,7 @@ class AuthRepository private constructor() {
                 .delete()
                 .build()
 
-            client.newCall(delOrdersReq).execute()
+            SupabaseClient.instance.client.newCall(delOrdersReq).execute().use { }
 
             // 3. Clear local preferences, stop services & reset state
             prefs.edit().clear().apply()

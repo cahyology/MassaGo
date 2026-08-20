@@ -254,10 +254,10 @@ class OrderRepository private constructor(
                 if (isOnline && _activeOrder.value == null) {
                     checkForRealIncomingOrder()
                 } else if (!isOnline && _activeOrder.value == null) {
-                    delay(2500)
+                    delay(3000)
                     continue
                 }
-                delay(1000) // Fast 1-second polling for instant background order detection
+                delay(2000) // 2-second polling for efficient battery & fast background order detection
             }
         }
     }
@@ -830,13 +830,13 @@ class OrderRepository private constructor(
                         val updateJson = com.google.gson.JsonObject().apply {
                             addProperty("orders_completed", newCount)
                         }.toString()
-                        val req = okhttp3.Request.Builder()
-                            .url("${com.massago.mitra.data.network.SupabaseConfig.URL}/rest/v1/therapists?id=eq.${profile.id}")
-                            .patch(updateJson.toRequestBody(com.massago.mitra.data.network.SupabaseConfig.JSON_MEDIA))
-                            .header("apikey", com.massago.mitra.data.network.SupabaseConfig.ANON_KEY)
-                            .header("Authorization", "Bearer ${com.massago.mitra.data.network.SupabaseConfig.ANON_KEY}")
+                        val req = Request.Builder()
+                            .url("${SupabaseConfig.URL}/rest/v1/therapists?id=eq.${profile.id}")
+                            .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                            .header("apikey", SupabaseConfig.ANON_KEY)
+                            .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                             .build()
-                        okhttp3.OkHttpClient().newCall(req).execute()
+                        SupabaseClient.instance.client.newCall(req).execute().use { }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
