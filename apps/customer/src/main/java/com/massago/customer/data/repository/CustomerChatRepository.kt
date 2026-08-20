@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.massago.customer.CustomerApp
 import com.massago.customer.data.model.CustomerChatMessage
+import com.massago.customer.data.network.SupabaseConfig
 import com.massago.customer.data.network.SupabaseCustomerClient
 import com.massago.customer.util.CustomerNotificationHelper
 import kotlinx.coroutines.CoroutineScope
@@ -14,8 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
@@ -25,7 +24,6 @@ class CustomerChatRepository private constructor() {
     private val scope = CoroutineScope(Dispatchers.IO)
     private var syncJob: Job? = null
     private val gson = Gson()
-    private val client = OkHttpClient()
 
     private val _messages = MutableStateFlow<List<CustomerChatMessage>>(emptyList())
     val messages: StateFlow<List<CustomerChatMessage>> = _messages.asStateFlow()
@@ -67,7 +65,7 @@ class CustomerChatRepository private constructor() {
                     val rawChatJson = orderData?.get("customer_id") as? String
                     if (!rawChatJson.isNullOrBlank() && rawChatJson.startsWith("[")) {
                         val type = object : TypeToken<List<CustomerChatMessage>>() {}.type
-                        val remoteList: List<CustomerChatMessage> = gson.fromJson(rawChatJson, type)
+                        val remoteList: List<CustomerChatMessage> = gson.fromJson(rawChatJson, type) ?: emptyList()
                         if (remoteList.isNotEmpty() && remoteList.size != _messages.value.size) {
                             val newMsgs = remoteList.filter { !it.isMe && it.timestampMillis > (System.currentTimeMillis() - 10000) }
                             if (newMsgs.isNotEmpty() && remoteList.size > lastSeenMessageCount) {
@@ -90,7 +88,7 @@ class CustomerChatRepository private constructor() {
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
-                delay(1500)
+                delay(2000)
             }
         }
     }
@@ -135,13 +133,13 @@ class CustomerChatRepository private constructor() {
         }.toString()
 
         val request = Request.Builder()
-            .url("https://jrwkmedrrwvomyljdkpw.supabase.co/rest/v1/orders?id=eq.$orderId")
-            .addHeader("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impyd2ttZWRycnd2b215bGpka3B3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTcxNzQsImV4cCI6MjEwMjQ5MzE3NH0.UiN6JvJt23ds-3eID9J6wOtEt3pg4-farSwQIliPzuw")
-            .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impyd2ttZWRycnd2b215bGpka3B3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MTcxNzQsImV4cCI6MjEwMjQ5MzE3NH0.UiN6JvJt23ds-3eID9J6wOtEt3pg4-farSwQIliPzuw")
-            .patch(bodyJson.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .url("${SupabaseConfig.URL}/rest/v1/orders?id=eq.$orderId")
+            .addHeader("apikey", SupabaseConfig.ANON_KEY)
+            .addHeader("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+            .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
             .build()
 
-        client.newCall(request).execute()
+        SupabaseCustomerClient.instance.client.newCall(request).execute().use { }
     }
 
     companion object {

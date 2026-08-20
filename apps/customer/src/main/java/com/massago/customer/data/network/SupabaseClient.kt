@@ -5,11 +5,14 @@ import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 object SupabaseConfig {
@@ -23,11 +26,20 @@ class SupabaseCustomerClient(
     private val anonKey: String = SupabaseConfig.ANON_KEY
 ) {
     val gson = Gson()
-    private val client: OkHttpClient = OkHttpClient.Builder()
+
+    private val pool = ConnectionPool(8, 2, TimeUnit.MINUTES)
+    private val dispatcher = Dispatcher(Executors.newFixedThreadPool(16)).apply {
+        maxRequests = 16
+        maxRequestsPerHost = 8
+    }
+
+    val client: OkHttpClient = OkHttpClient.Builder()
+        .connectionPool(pool)
+        .dispatcher(dispatcher)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.NONE
         })
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
@@ -42,6 +54,31 @@ class SupabaseCustomerClient(
 
     companion object {
         val instance by lazy { SupabaseCustomerClient() }
+
+        fun parseIsoOrEpochMillis(raw: Any?): Long {
+            if (raw == null) return System.currentTimeMillis()
+            if (raw is Number) {
+                val v = raw.toLong()
+                return if (v < 10_000_000_000L) v * 1000L else v
+            }
+            if (raw is String) {
+                val num = raw.toDoubleOrNull()
+                if (num != null) {
+                    val v = num.toLong()
+                    return if (v < 10_000_000_000L) v * 1000L else v
+                }
+                return try {
+                    val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }
+                    val clean = raw.take(19)
+                    parser.parse(clean)?.time ?: System.currentTimeMillis()
+                } catch (_: Exception) {
+                    System.currentTimeMillis()
+                }
+            }
+            return System.currentTimeMillis()
+        }
     }
 
     /**
@@ -66,13 +103,14 @@ class SupabaseCustomerClient(
                 .post(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(body, type)
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(body, type) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -90,13 +128,14 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(body, type)
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(body, type) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -114,13 +153,14 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(body, type)
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(body, type) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -138,20 +178,21 @@ class SupabaseCustomerClient(
                 .post(orderPayload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: ""
-            if (response.isSuccessful) {
-                if (body.isBlank()) return@withContext mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
-                try {
-                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                    val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                    list.firstOrNull() ?: mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
-                } catch (_: Exception) {
-                    mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    if (body.isBlank()) return@withContext mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+                    try {
+                        val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                        val list: List<Map<String, Any>> = gson.fromJson(body, type)
+                        list.firstOrNull() ?: mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+                    } catch (_: Exception) {
+                        mapOf("id" to (orderPayload.get("id")?.asString ?: ""))
+                    }
+                } else {
+                    android.util.Log.e("SupabaseClient", "createOrder ERROR ${response.code}: $body")
+                    null
                 }
-            } else {
-                android.util.Log.e("SupabaseClient", "createOrder ERROR ${response.code}: $body")
-                null
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -171,20 +212,22 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext null
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                list.firstOrNull()
-            } else {
-                null
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(body, type)
+                    list.firstOrNull()
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
+
     /**
      * Update Order Status (e.g. CANCELLED, COMPLETED)
      */
@@ -199,8 +242,9 @@ class SupabaseCustomerClient(
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -219,14 +263,15 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext null
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                list.firstOrNull()
-            } else {
-                null
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(body, type)
+                    list.firstOrNull()
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -265,7 +310,10 @@ class SupabaseCustomerClient(
                 .post(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
+            var reviewSuccess = false
+            client.newCall(request).execute().use { response ->
+                reviewSuccess = response.isSuccessful
+            }
 
             // Update therapist rating & review count
             val therapistData = fetchTherapist(targetId)
@@ -285,10 +333,11 @@ class SupabaseCustomerClient(
                     .url("$baseUrl/rest/v1/therapists?id=eq.$targetId")
                     .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                     .build()
-                client.newCall(patchRequest).execute()
+
+                client.newCall(patchRequest).execute().use { }
             }
 
-            response.isSuccessful
+            reviewSuccess
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -305,13 +354,14 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(body, type)
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(body, type) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -329,33 +379,29 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext emptyMap()
-                val type = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(body, type)
-                val map = mutableMapOf<String, String>()
-                list.forEach { item ->
-                    val key = item["key"] as? String
-                    val value = item["value"] as? String
-                    if (key != null && value != null) {
-                        map[key] = value
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext emptyMap()
+                    val type = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(body, type) ?: emptyList()
+                    val map = mutableMapOf<String, String>()
+                    list.forEach { item ->
+                        val key = item["key"] as? String
+                        val value = item["value"] as? String
+                        if (key != null && value != null) {
+                            map[key] = value
+                        }
                     }
+                    map
+                } else {
+                    emptyMap()
                 }
-                map
-            } else {
-                emptyMap()
             }
         } catch (e: Exception) {
             e.printStackTrace()
             emptyMap()
         }
     }
-
-    private val rawClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
 
     /**
      * Create DOKU Checkout Session URL for Customer Order
@@ -419,13 +465,14 @@ class SupabaseCustomerClient(
                 .post(rawBody.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val res = rawClient.newCall(req).execute()
-            if (res.isSuccessful) {
-                val respBody = res.body?.string() ?: return@withContext null
-                val obj = gson.fromJson(respBody, JsonObject::class.java)
-                obj.getAsJsonObject("response")?.getAsJsonObject("payment")?.get("url")?.asString
-            } else {
-                null
+            client.newCall(req).execute().use { res ->
+                if (res.isSuccessful) {
+                    val respBody = res.body?.string() ?: return@withContext null
+                    val obj = gson.fromJson(respBody, JsonObject::class.java)
+                    obj.getAsJsonObject("response")?.getAsJsonObject("payment")?.get("url")?.asString
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -485,139 +532,138 @@ class SupabaseCustomerClient(
                 .post(gson.toJson(payload).toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val res = rawClient.newCall(req).execute()
-            val respBody = res.body?.string() ?: ""
-            if (res.isSuccessful && respBody.contains("redirect_url")) {
-                val obj = gson.fromJson(respBody, JsonObject::class.java)
-                obj.get("redirect_url")?.asString
-            } else {
-                // High-Fidelity Midtrans Snap Sandbox Interactive Simulator (Offline/Pending Activation Fallback)
-                val encodedService = java.net.URLEncoder.encode(serviceName, "UTF-8")
-                val encodedCustomer = java.net.URLEncoder.encode(customerName, "UTF-8")
-                val formattedAmount = java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(amount)
-                val vaNumber = "88012" + System.currentTimeMillis().toString().takeLast(7)
+            client.newCall(req).execute().use { res ->
+                val respBody = res.body?.string() ?: ""
+                if (res.isSuccessful && respBody.contains("redirect_url")) {
+                    val obj = gson.fromJson(respBody, JsonObject::class.java)
+                    obj.get("redirect_url")?.asString
+                } else {
+                    // High-Fidelity Midtrans Snap Sandbox Interactive Simulator (Offline/Pending Activation Fallback)
+                    val formattedAmount = java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(amount)
+                    val vaNumber = "88012" + System.currentTimeMillis().toString().takeLast(7)
 
-                val html = """
-                    <!DOCTYPE html>
-                    <html lang="id">
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                        <title>Midtrans Snap Sandbox</title>
-                        <style>
-                            * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-                            body { background: #f1f5f9; color: #1e293b; padding: 16px; min-height: 100vh; display: flex; flex-direction: column; }
-                            .header { background: #0f172a; color: white; padding: 16px; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-                            .header h2 { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-                            .badge { background: #f59e0b; color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; }
-                            .amount-box { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; margin-bottom: 16px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
-                            .amount-box .label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
-                            .amount-box .value { font-size: 24px; font-weight: 900; color: #059669; margin: 4px 0; }
-                            .amount-box .order-id { font-size: 11px; font-family: monospace; color: #94a3b8; }
-                            .section-title { font-size: 12px; font-weight: 800; color: #475569; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-                            .method-card { background: white; border: 2px solid #e2e8f0; border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
-                            .method-card.active { border-color: #059669; background: #f0fdf4; }
-                            .method-info { display: flex; align-items: center; gap: 12px; }
-                            .method-icon { width: 36px; height: 36px; border-radius: 10px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-                            .method-name { font-size: 13px; font-weight: 700; color: #1e293b; }
-                            .method-desc { font-size: 11px; color: #64748b; }
-                            .qris-view { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 16px; display: none; }
-                            .qris-view.show { display: block; }
-                            .qr-img { width: 180px; height: 180px; margin: 10px auto; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-                            .va-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; margin: 10px 0; font-family: monospace; font-size: 16px; font-weight: 800; color: #0f172a; text-align: center; }
-                            .btn-pay { background: #059669; color: white; border: none; width: 100%; padding: 14px; border-radius: 14px; font-size: 14px; font-weight: 800; cursor: pointer; margin-top: auto; box-shadow: 0 4px 12px rgba(5,150,105,0.3); transition: background 0.2s; }
-                            .btn-pay:hover { background: #047857; }
-                            .footer-note { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 12px; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <h2>
-                                <span>Midtrans SNAP</span>
-                                <span class="badge">SANDBOX SIMULATOR</span>
-                            </h2>
-                            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Massago Gateway • Demo Testing Mode</div>
-                        </div>
+                    val html = """
+                        <!DOCTYPE html>
+                        <html lang="id">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                            <title>Midtrans Snap Sandbox</title>
+                            <style>
+                                * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+                                body { background: #f1f5f9; color: #1e293b; padding: 16px; min-height: 100vh; display: flex; flex-direction: column; }
+                                .header { background: #0f172a; color: white; padding: 16px; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                                .header h2 { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+                                .badge { background: #f59e0b; color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; }
+                                .amount-box { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; margin-bottom: 16px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+                                .amount-box .label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+                                .amount-box .value { font-size: 24px; font-weight: 900; color: #059669; margin: 4px 0; }
+                                .amount-box .order-id { font-size: 11px; font-family: monospace; color: #94a3b8; }
+                                .section-title { font-size: 12px; font-weight: 800; color: #475569; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+                                .method-card { background: white; border: 2px solid #e2e8f0; border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
+                                .method-card.active { border-color: #059669; background: #f0fdf4; }
+                                .method-info { display: flex; align-items: center; gap: 12px; }
+                                .method-icon { width: 36px; height: 36px; border-radius: 10px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+                                .method-name { font-size: 13px; font-weight: 700; color: #1e293b; }
+                                .method-desc { font-size: 11px; color: #64748b; }
+                                .qris-view { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 16px; display: none; }
+                                .qris-view.show { display: block; }
+                                .qr-img { width: 180px; height: 180px; margin: 10px auto; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+                                .va-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; margin: 10px 0; font-family: monospace; font-size: 16px; font-weight: 800; color: #0f172a; text-align: center; }
+                                .btn-pay { background: #059669; color: white; border: none; width: 100%; padding: 14px; border-radius: 14px; font-size: 14px; font-weight: 800; cursor: pointer; margin-top: auto; box-shadow: 0 4px 12px rgba(5,150,105,0.3); transition: background 0.2s; }
+                                .btn-pay:hover { background: #047857; }
+                                .footer-note { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 12px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <h2>
+                                    <span>Midtrans SNAP</span>
+                                    <span class="badge">SANDBOX SIMULATOR</span>
+                                </h2>
+                                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Massago Gateway • Demo Testing Mode</div>
+                            </div>
 
-                        <div class="amount-box">
-                            <div class="label">Total Pembayaran Layanan</div>
-                            <div class="value">Rp $formattedAmount</div>
-                            <div class="order-id">ID Pesanan: $orderId</div>
-                        </div>
+                            <div class="amount-box">
+                                <div class="label">Total Pembayaran Layanan</div>
+                                <div class="value">Rp $formattedAmount</div>
+                                <div class="order-id">ID Pesanan: $orderId</div>
+                            </div>
 
-                        <div class="section-title">Pilih Metode Pembayaran</div>
+                            <div class="section-title">Pilih Metode Pembayaran</div>
 
-                        <div class="method-card active" onclick="selectMethod('qris')">
-                            <div class="method-info">
-                                <div class="method-icon" style="background: #e0f2fe;">📱</div>
-                                <div>
-                                    <div class="method-name">QRIS (GoPay, OVO, Dana, ShopeePay)</div>
-                                    <div class="method-desc">Scan kode QR via semua e-wallet & m-banking</div>
+                            <div class="method-card active" onclick="selectMethod('qris')">
+                                <div class="method-info">
+                                    <div class="method-icon" style="background: #e0f2fe;">📱</div>
+                                    <div>
+                                        <div class="method-name">QRIS (GoPay, OVO, Dana, ShopeePay)</div>
+                                        <div class="method-desc">Scan kode QR via semua e-wallet & m-banking</div>
+                                    </div>
                                 </div>
+                                <input type="radio" name="paymethod" checked>
                             </div>
-                            <input type="radio" name="paymethod" checked>
-                        </div>
 
-                        <div class="method-card" onclick="selectMethod('va')">
-                            <div class="method-info">
-                                <div class="method-icon" style="background: #fef3c7;">🏦</div>
-                                <div>
-                                    <div class="method-name">BCA / Mandiri / BRI Virtual Account</div>
-                                    <div class="method-desc">Transfer otomatis tanpa konfirmasi manual</div>
+                            <div class="method-card" onclick="selectMethod('va')">
+                                <div class="method-info">
+                                    <div class="method-icon" style="background: #fef3c7;">🏦</div>
+                                    <div>
+                                        <div class="method-name">BCA / Mandiri / BRI Virtual Account</div>
+                                        <div class="method-desc">Transfer otomatis tanpa konfirmasi manual</div>
+                                    </div>
                                 </div>
+                                <input type="radio" name="paymethod">
                             </div>
-                            <input type="radio" name="paymethod">
-                        </div>
 
-                        <div id="qrisSection" class="qris-view show">
-                            <div style="font-size: 12px; font-weight: 700; color: #0f172a;">Scan QRIS Midtrans Sandbox</div>
-                            <div class="qr-img">
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MIDTRANS-SANDBOX-$orderId-$amount" style="width: 100%; height: 100%; object-fit: contain;">
+                            <div id="qrisSection" class="qris-view show">
+                                <div style="font-size: 12px; font-weight: 700; color: #0f172a;">Scan QRIS Midtrans Sandbox</div>
+                                <div class="qr-img">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MIDTRANS-SANDBOX-$orderId-$amount" style="width: 100%; height: 100%; object-fit: contain;">
+                                </div>
+                                <div style="font-size: 11px; color: #64748b;">NMID: ID1020030040050 • Massago</div>
                             </div>
-                            <div style="font-size: 11px; color: #64748b;">NMID: ID1020030040050 • Massago</div>
-                        </div>
 
-                        <div id="vaSection" class="qris-view">
-                            <div style="font-size: 12px; font-weight: 700; color: #0f172a;">Nomor Virtual Account BCA</div>
-                            <div class="va-box">$vaNumber</div>
-                            <div style="font-size: 11px; color: #64748b;">Salin nomor VA di atas lalu selesaikan pembayaran di m-banking Anda.</div>
-                        </div>
+                            <div id="vaSection" class="qris-view">
+                                <div style="font-size: 12px; font-weight: 700; color: #0f172a;">Nomor Virtual Account BCA</div>
+                                <div class="va-box">$vaNumber</div>
+                                <div style="font-size: 11px; color: #64748b;">Salin nomor VA di atas lalu selesaikan pembayaran di m-banking Anda.</div>
+                            </div>
 
-                        <button class="btn-pay" onclick="simulateSuccess()">
-                            ✅ SIMULASIKAN PEMBAYARAN BERHASIL
-                        </button>
+                            <button class="btn-pay" onclick="simulateSuccess()">
+                                ✅ SIMULASIKAN PEMBAYARAN BERHASIL
+                            </button>
 
-                        <div class="footer-note">
-                            Dilindungi oleh Enkripsi SSL 256-bit Midtrans Payment Gateway
-                        </div>
+                            <div class="footer-note">
+                                Dilindungi oleh Enkripsi SSL 256-bit Midtrans Payment Gateway
+                            </div>
 
-                        <script>
-                            function selectMethod(type) {
-                                document.querySelectorAll('.method-card').forEach(c => c.classList.remove('active'));
-                                if (type === 'qris') {
-                                    document.querySelectorAll('.method-card')[0].classList.add('active');
-                                    document.getElementById('qrisSection').classList.add('show');
-                                    document.getElementById('vaSection').classList.remove('show');
-                                } else {
-                                    document.querySelectorAll('.method-card')[1].classList.add('active');
-                                    document.getElementById('vaSection').classList.add('show');
-                                    document.getElementById('qrisSection').classList.remove('show');
+                            <script>
+                                function selectMethod(type) {
+                                    document.querySelectorAll('.method-card').forEach(c => c.classList.remove('active'));
+                                    if (type === 'qris') {
+                                        document.querySelectorAll('.method-card')[0].classList.add('active');
+                                        document.getElementById('qrisSection').classList.add('show');
+                                        document.getElementById('vaSection').classList.remove('show');
+                                    } else {
+                                        document.querySelectorAll('.method-card')[1].classList.add('active');
+                                        document.getElementById('vaSection').classList.add('show');
+                                        document.getElementById('qrisSection').classList.remove('show');
+                                    }
                                 }
-                            }
 
-                            function simulateSuccess() {
-                                document.querySelector('.btn-pay').innerText = 'Memproses Pembayaran...';
-                                document.querySelector('.btn-pay').style.background = '#047857';
-                                setTimeout(function() {
-                                    window.location.href = 'massago://payment-finish?order_id=$orderId&status_code=200&transaction_status=settlement';
-                                }, 500);
-                            }
-                        </script>
-                    </body>
-                    </html>
-                """.trimIndent()
+                                function simulateSuccess() {
+                                    document.querySelector('.btn-pay').innerText = 'Memproses Pembayaran...';
+                                    document.querySelector('.btn-pay').style.background = '#047857';
+                                    setTimeout(function() {
+                                        window.location.href = 'massago://payment-finish?order_id=$orderId&status_code=200&transaction_status=settlement';
+                                    }, 500);
+                                }
+                            </script>
+                        </body>
+                        </html>
+                    """.trimIndent()
 
-                "data:text/html;charset=utf-8," + android.net.Uri.encode(html)
+                    "data:text/html;charset=utf-8," + android.net.Uri.encode(html)
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -647,13 +693,14 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val res = rawClient.newCall(req).execute()
-            if (res.isSuccessful) {
-                val respBody = res.body?.string() ?: return@withContext null
-                val obj = gson.fromJson(respBody, JsonObject::class.java)
-                obj.get("transaction_status")?.asString
-            } else {
-                null
+            client.newCall(req).execute().use { res ->
+                if (res.isSuccessful) {
+                    val respBody = res.body?.string() ?: return@withContext null
+                    val obj = gson.fromJson(respBody, JsonObject::class.java)
+                    obj.get("transaction_status")?.asString
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -692,8 +739,10 @@ class SupabaseCustomerClient(
                 .url("$baseUrl/rest/v1/sos_emergency_logs")
                 .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -709,22 +758,24 @@ class SupabaseCustomerClient(
                 .url("$baseUrl/rest/v1/therapists?select=id,name,phone")
                 .get()
                 .build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val json = response.body?.string() ?: return@withContext emptyMap()
-                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val list: List<Map<String, Any>> = gson.fromJson(json, listType) ?: emptyList()
-                val map = mutableMapOf<String, String>()
-                list.forEach { item ->
-                    val id = item["id"] as? String ?: ""
-                    val name = item["name"] as? String ?: ""
-                    val phone = item["phone"] as? String ?: ""
-                    if (id.isNotBlank() && name.isNotBlank()) map[id] = name
-                    if (phone.isNotBlank() && name.isNotBlank()) map[phone] = name
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val json = response.body?.string() ?: return@withContext emptyMap()
+                    val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    val list: List<Map<String, Any>> = gson.fromJson(json, listType) ?: emptyList()
+                    val map = mutableMapOf<String, String>()
+                    list.forEach { item ->
+                        val id = item["id"] as? String ?: ""
+                        val name = item["name"] as? String ?: ""
+                        val phone = item["phone"] as? String ?: ""
+                        if (id.isNotBlank() && name.isNotBlank()) map[id] = name
+                        if (phone.isNotBlank() && name.isNotBlank()) map[phone] = name
+                    }
+                    map
+                } else {
+                    emptyMap()
                 }
-                map
-            } else {
-                emptyMap()
             }
         } catch (e: Exception) {
             emptyMap()
@@ -758,13 +809,14 @@ class SupabaseCustomerClient(
             val url = "$baseUrl/rest/v1/orders?$query&order=created_at.desc&limit=50"
 
             val request = Request.Builder().url(url).get().build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val json = response.body?.string() ?: return@withContext emptyList()
-                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(json, listType) ?: emptyList()
-            } else {
-                emptyList()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val json = response.body?.string() ?: return@withContext emptyList()
+                    val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(json, listType) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -786,13 +838,15 @@ class SupabaseCustomerClient(
 
             val url = "$baseUrl/rest/v1/customer_addresses?or=(customer_phone.eq.$cleanPhone,customer_phone.eq.$localPhone)&order=created_at.desc"
             val request = Request.Builder().url(url).get().build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val json = response.body?.string() ?: return@withContext emptyList()
-                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
-                gson.fromJson(json, listType) ?: emptyList()
-            } else {
-                emptyList()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val json = response.body?.string() ?: return@withContext emptyList()
+                    val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                    gson.fromJson(json, listType) ?: emptyList()
+                } else {
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -837,8 +891,9 @@ class SupabaseCustomerClient(
                 .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -855,8 +910,9 @@ class SupabaseCustomerClient(
                 .delete()
                 .build()
 
-            val response = client.newCall(request).execute()
-            response.isSuccessful
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -881,14 +937,15 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext null
-                val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
-                val list: List<Map<String, Any?>> = gson.fromJson(body, type)
-                list.firstOrNull()
-            } else {
-                null
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
+                    val list: List<Map<String, Any?>> = gson.fromJson(body, type)
+                    list.firstOrNull()
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -906,14 +963,15 @@ class SupabaseCustomerClient(
                 .get()
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return@withContext null
-                val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
-                val list: List<Map<String, Any?>> = gson.fromJson(body, type)
-                list.firstOrNull()
-            } else {
-                null
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
+                    val list: List<Map<String, Any?>> = gson.fromJson(body, type)
+                    list.firstOrNull()
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -921,5 +979,3 @@ class SupabaseCustomerClient(
         }
     }
 }
-
-

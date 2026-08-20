@@ -2,36 +2,48 @@ package com.massago.customer.data.repository
 
 import android.content.Context
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.massago.customer.data.network.SupabaseConfig
 import com.massago.customer.data.network.SupabaseCustomerClient
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class CustomerAuthRepository private constructor() {
 
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private var sessionMonitorJob: Job? = null
+
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    private val _currentUserName = MutableStateFlow("Pelanggan MassaGo")
+    val currentUserName: StateFlow<String> = _currentUserName.asStateFlow()
 
     private val _tempPhoneNumber = MutableStateFlow("")
     val tempPhoneNumber: StateFlow<String> = _tempPhoneNumber.asStateFlow()
 
-    private val _currentUserName = MutableStateFlow("Amanda Putri")
-    val currentUserName: StateFlow<String> = _currentUserName.asStateFlow()
+    private val _sessionTerminatedMessage = MutableStateFlow<String?>(null)
+    val sessionTerminatedMessage: StateFlow<String?> = _sessionTerminatedMessage.asStateFlow()
+
+    fun clearSessionTerminatedMessage() {
+        _sessionTerminatedMessage.value = null
+    }
 
     companion object {
-        private const val PREFS_NAME = "massago_customer_auth"
-        private const val KEY_IS_LOGGED_IN = "is_logged_in"
-        private const val KEY_PHONE = "saved_phone"
-        private const val KEY_USER_NAME = "saved_name"
-        private const val KEY_USER_ID = "saved_user_id"
-        private const val KEY_DEVICE_ID = "saved_device_session_id"
+        private const val PREFS_NAME = "massago_customer_auth_prefs"
+        private const val KEY_IS_LOGGED_IN = "IS_LOGGED_IN"
+        private const val KEY_PHONE = "USER_PHONE"
+        private const val KEY_USER_NAME = "USER_NAME"
+        private const val KEY_USER_ID = "USER_ID"
+        private const val KEY_DEVICE_ID = "DEVICE_SESSION_ID"
 
         val instance: CustomerAuthRepository by lazy { CustomerAuthRepository() }
 
@@ -59,11 +71,12 @@ class CustomerAuthRepository private constructor() {
         val savedName = prefs.getString(KEY_USER_NAME, "Pelanggan MassaGo") ?: "Pelanggan MassaGo"
         val savedPhone = prefs.getString(KEY_PHONE, "") ?: ""
         val savedId = prefs.getString(KEY_USER_ID, "") ?: ""
-        _currentUserName.value = savedName
         _isLoggedIn.value = savedLogin
-        CustomerUserRepository.instance.updateProfileInfo(savedName, savedPhone, "", savedId)
+        _currentUserName.value = savedName
 
         if (savedLogin && savedPhone.isNotBlank()) {
+            CustomerUserRepository.instance.updateProfileInfo(savedName, savedPhone, "", savedId)
+            CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
             startSessionSecurityMonitor(context)
         }
     }
@@ -78,19 +91,6 @@ class CustomerAuthRepository private constructor() {
     private fun hashPassword(password: String): String {
         val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(password.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }
-    }
-
-    /**
-     * Login directly with Phone & Password (0 OTP required!)
-     */
-    private val _sessionTerminatedMessage = MutableStateFlow<String?>(null)
-    val sessionTerminatedMessage: StateFlow<String?> = _sessionTerminatedMessage.asStateFlow()
-
-    private var sessionMonitorJob: kotlinx.coroutines.Job? = null
-    private val coroutineScope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
-
-    fun clearSessionTerminatedMessage() {
-        _sessionTerminatedMessage.value = null
     }
 
     fun getOrCreateDeviceId(context: Context): String {
@@ -110,7 +110,6 @@ class CustomerAuthRepository private constructor() {
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val cleanPhone = normalizeIndonesianPhone(rawPhone)
-
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
             val intlPhone = "+" + cleanPhone
 
@@ -120,12 +119,13 @@ class CustomerAuthRepository private constructor() {
                 .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .build()
 
-            val client = OkHttpClient()
-            val res = client.newCall(req).execute()
-            val bodyStr = res.body?.string() ?: "[]"
+            var bodyStr = "[]"
+            SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                bodyStr = res.body?.string() ?: "[]"
+            }
 
-            if (res.isSuccessful && bodyStr.startsWith("[{")) {
-                val jsonArr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
+            if (bodyStr.startsWith("[{")) {
+                val jsonArr = JsonParser.parseString(bodyStr).asJsonArray
                 if (jsonArr.size() > 0) {
                     val userObj = jsonArr[0].asJsonObject
                     val savedAvatar = userObj.get("avatar_url")?.asString ?: ""
@@ -163,7 +163,7 @@ class CustomerAuthRepository private constructor() {
                                 .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                                 .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                                 .build()
-                            client.newCall(patchReq).execute()
+                            SupabaseCustomerClient.instance.client.newCall(patchReq).execute().use { }
                         } catch (_: Exception) {}
 
                         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -217,16 +217,16 @@ class CustomerAuthRepository private constructor() {
                 .post(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val rawClient = OkHttpClient()
-            val res = rawClient.newCall(req).execute()
-            val respStr = res.body?.string() ?: ""
+            SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                val respStr = res.body?.string() ?: ""
 
-            if (res.isSuccessful && respStr.contains("\"status\":true")) {
-                Result.success("OTP berhasil dikirim ke WhatsApp $clean")
-            } else if (respStr.contains("disconnected device")) {
-                Result.success("Fonnte disconnected di dashboard. Kode OTP Anda: $code")
-            } else {
-                Result.success("Kode OTP Anda: $code")
+                if (res.isSuccessful && respStr.contains("\"status\":true")) {
+                    Result.success("OTP berhasil dikirim ke WhatsApp $clean")
+                } else if (respStr.contains("disconnected device")) {
+                    Result.success("Fonnte disconnected di dashboard. Kode OTP Anda: $code")
+                } else {
+                    Result.success("Kode OTP Anda: $code")
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -257,20 +257,20 @@ class CustomerAuthRepository private constructor() {
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
 
-                val client = OkHttpClient()
-                val checkRes = client.newCall(checkReq).execute()
-                val checkStr = checkRes.body?.string() ?: "[]"
-                val isRegistered = checkStr.startsWith("[{")
+                SupabaseCustomerClient.instance.client.newCall(checkReq).execute().use { checkRes ->
+                    val checkStr = checkRes.body?.string() ?: "[]"
+                    val isRegistered = checkStr.startsWith("[{")
 
-                if (isRegistered) {
-                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    prefs.edit()
-                        .putBoolean(KEY_IS_LOGGED_IN, true)
-                        .putString(KEY_PHONE, cleanPhone)
-                        .apply()
-                    _isLoggedIn.value = true
+                    if (isRegistered) {
+                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean(KEY_IS_LOGGED_IN, true)
+                            .putString(KEY_PHONE, cleanPhone)
+                            .apply()
+                        _isLoggedIn.value = true
+                    }
+                    Result.success(isRegistered)
                 }
-                Result.success(isRegistered)
             } else {
                 Result.failure(Exception("Kode OTP salah atau telah kedaluwarsa"))
             }
@@ -312,8 +312,7 @@ class CustomerAuthRepository private constructor() {
                 .post(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val client = OkHttpClient()
-            client.newCall(req).execute()
+            SupabaseCustomerClient.instance.client.newCall(req).execute().use { }
 
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit()
@@ -361,9 +360,12 @@ class CustomerAuthRepository private constructor() {
                 .patch(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val client = OkHttpClient()
-            val res = client.newCall(req).execute()
-            if (res.isSuccessful) {
+            var isSuccess = false
+            SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                isSuccess = res.isSuccessful
+            }
+
+            if (isSuccess) {
                 val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 prefs.edit()
                     .putBoolean(KEY_IS_LOGGED_IN, true)
@@ -402,22 +404,23 @@ class CustomerAuthRepository private constructor() {
                         .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                         .build()
 
-                    val res = OkHttpClient().newCall(req).execute()
-                    val bodyStr = res.body?.string() ?: ""
-                    if (res.isSuccessful && bodyStr.startsWith("[{")) {
-                        val arr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
-                        if (arr.size() > 0) {
-                            val avatar = arr[0].asJsonObject.get("avatar_url")?.asString ?: ""
-                            val devRegex = Regex("dev:([a-zA-Z0-9-]+)")
-                            val match = devRegex.find(avatar)
-                            if (match != null) {
-                                val remoteDevId = match.groupValues[1]
-                                if (remoteDevId.isNotBlank() && remoteDevId != localDevId) {
-                                    withContext(Dispatchers.Main) {
-                                        logout(context)
-                                        _sessionTerminatedMessage.value = "Akun Anda baru saja masuk di perangkat lain. Sesi di perangkat ini telah diakhiri demi keamanan akun & saldo Anda."
+                    SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                        val bodyStr = res.body?.string() ?: ""
+                        if (res.isSuccessful && bodyStr.startsWith("[{")) {
+                            val arr = JsonParser.parseString(bodyStr).asJsonArray
+                            if (arr.size() > 0) {
+                                val avatar = arr[0].asJsonObject.get("avatar_url")?.asString ?: ""
+                                val devRegex = Regex("dev:([a-zA-Z0-9-]+)")
+                                val match = devRegex.find(avatar)
+                                if (match != null) {
+                                    val remoteDevId = match.groupValues[1]
+                                    if (remoteDevId.isNotBlank() && remoteDevId != localDevId) {
+                                        withContext(Dispatchers.Main) {
+                                            logout(context)
+                                            _sessionTerminatedMessage.value = "Akun Anda baru saja masuk di perangkat lain. Sesi di perangkat ini telah diakhiri demi keamanan akun & saldo Anda."
+                                        }
+                                        return@launch
                                     }
-                                    break
                                 }
                             }
                         }
@@ -443,8 +446,6 @@ class CustomerAuthRepository private constructor() {
             val cleanPhone = normalizeIndonesianPhone(phone)
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
 
-            val client = OkHttpClient()
-
             // 1. Delete customer record from Supabase
             val queryParam = if (userId.isNotBlank()) "or=(id.eq.$userId,phone.eq.$cleanPhone,phone.eq.$localPhone)" else "or=(phone.eq.$cleanPhone,phone.eq.$localPhone)"
             val delReq = Request.Builder()
@@ -454,7 +455,7 @@ class CustomerAuthRepository private constructor() {
                 .delete()
                 .build()
 
-            client.newCall(delReq).execute()
+            SupabaseCustomerClient.instance.client.newCall(delReq).execute().use { }
 
             // 2. Delete related orders
             val delOrdersReq = Request.Builder()
@@ -464,7 +465,7 @@ class CustomerAuthRepository private constructor() {
                 .delete()
                 .build()
 
-            client.newCall(delOrdersReq).execute()
+            SupabaseCustomerClient.instance.client.newCall(delOrdersReq).execute().use { }
 
             // 3. Clear local preferences & reset state
             prefs.edit().clear().apply()

@@ -193,11 +193,14 @@ class CustomerUserRepository private constructor() {
                     .header("apikey", SupabaseConfig.ANON_KEY)
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
+                var bodyStr = "[]"
+                var isSuccess = false
+                SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                    isSuccess = res.isSuccessful
+                    bodyStr = res.body?.string() ?: "[]"
+                }
 
-                val res = OkHttpClient().newCall(req).execute()
-                val bodyStr = res.body?.string() ?: "[]"
-
-                if (res.isSuccessful && bodyStr.startsWith("[{")) {
+                if (isSuccess && bodyStr.startsWith("[{")) {
                     val arr = com.google.gson.JsonParser.parseString(bodyStr).asJsonArray
                     if (arr.size() > 0) {
                         val obj = arr[0].asJsonObject
@@ -363,7 +366,7 @@ class CustomerUserRepository private constructor() {
                     .header("apikey", SupabaseConfig.ANON_KEY)
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
-                OkHttpClient().newCall(req).execute()
+                SupabaseCustomerClient.instance.client.newCall(req).execute().use { }
             } catch (_: Exception) {}
         }
     }
@@ -401,13 +404,17 @@ class CustomerUserRepository private constructor() {
                     .get()
                     .build()
 
-                val client = OkHttpClient()
-                val res = client.newCall(req).execute()
                 val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
-                val reviews: List<Map<String, Any>> = if (res.isSuccessful) {
-                    val body = res.body?.string() ?: "[]"
-                    gson.fromJson(body, listType) ?: emptyList()
-                } else emptyList()
+                val reviews: List<Map<String, Any>> = try {
+                    SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                        if (res.isSuccessful) {
+                            val body = res.body?.string() ?: "[]"
+                            gson.fromJson(body, listType) ?: emptyList()
+                        } else emptyList()
+                    }
+                } catch (_: Exception) {
+                    emptyList()
+                }
 
                 val favTherapistIds = reviews.mapNotNull { r ->
                     val targetId = r["target_id"] as? String
@@ -513,7 +520,7 @@ class CustomerUserRepository private constructor() {
                         .post(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                         .build()
 
-                    OkHttpClient().newCall(req).execute()
+                    SupabaseCustomerClient.instance.client.newCall(req).execute().use { }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -546,7 +553,7 @@ class CustomerUserRepository private constructor() {
                         .delete()
                         .build()
 
-                    OkHttpClient().newCall(req).execute()
+                    SupabaseCustomerClient.instance.client.newCall(req).execute().use { }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -595,9 +602,11 @@ class CustomerUserRepository private constructor() {
                 .patch(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
-            val client = OkHttpClient()
-            val res = client.newCall(req).execute()
-            if (res.isSuccessful) {
+            var isSuccess = false
+            SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
+                isSuccess = res.isSuccessful
+            }
+            if (isSuccess) {
                 updateProfileInfo(name = name, phone = cleanPhone, email = email)
                 Result.success(true)
             } else {
