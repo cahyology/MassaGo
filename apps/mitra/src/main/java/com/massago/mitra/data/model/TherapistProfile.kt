@@ -30,18 +30,10 @@ data class TherapistProfile(
     val maxRadiusKm: Int = 10,
     val preferredClientGender: String = "Semua", // Semua, Pria Saja, Wanita Saja
     val certifiedSpecialties: List<String> = listOf(
-        "Pijat Tradisional",
-        "Refleksi Kaki",
-        "Deep Tissue & Sport Massage",
-        "Lulur & Scrub Relaksasi",
-        "Bekam & Kerokan Higienis"
+        "Pijat Tradisional & Kebugaran Keluarga"
     ),
     val activeSpecialties: Set<String> = setOf(
-        "Pijat Tradisional",
-        "Refleksi Kaki",
-        "Deep Tissue & Sport Massage",
-        "Lulur & Scrub Relaksasi",
-        "Bekam & Kerokan Higienis"
+        "Pijat Tradisional & Kebugaran Keluarga"
     ),
     val mainBalance: Long = 0L, // Saldo Penghasilan
     val depositBalance: Long = 0L, // Saldo Deposit
