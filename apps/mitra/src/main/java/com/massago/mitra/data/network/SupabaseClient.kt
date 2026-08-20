@@ -42,10 +42,10 @@ class SupabaseClient(
         })
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
-                .addHeader("apikey", anonKey)
-                .addHeader("Authorization", "Bearer $anonKey")
-                .addHeader("Content-Type", "application/json")
-                .addHeader("Prefer", "return=representation")
+                .header("apikey", anonKey)
+                .header("Authorization", "Bearer $anonKey")
+                .header("Content-Type", "application/json")
+                .header("Prefer", "return=representation")
                 .build()
             chain.proceed(request)
         }

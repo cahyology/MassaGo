@@ -134,8 +134,6 @@ class CustomerChatRepository private constructor() {
 
         val request = Request.Builder()
             .url("${SupabaseConfig.URL}/rest/v1/orders?id=eq.$orderId")
-            .addHeader("apikey", SupabaseConfig.ANON_KEY)
-            .addHeader("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
             .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
             .build()
 

@@ -111,12 +111,10 @@ class CustomerAuthRepository private constructor() {
         try {
             val cleanPhone = normalizeIndonesianPhone(rawPhone)
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
-            val intlPhone = "+" + cleanPhone
+            val lastDigits = if (cleanPhone.length >= 8) cleanPhone.takeLast(8) else cleanPhone
 
             val req = Request.Builder()
-                .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)&select=id,full_name,phone,avatar_url")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.%2B$cleanPhone,phone.ilike.*$lastDigits*)&select=id,full_name,phone,avatar_url")
                 .build()
 
             var bodyStr = "[]"
@@ -124,65 +122,82 @@ class CustomerAuthRepository private constructor() {
                 bodyStr = res.body?.string() ?: "[]"
             }
 
-            if (bodyStr.startsWith("[{")) {
-                val jsonArr = JsonParser.parseString(bodyStr).asJsonArray
-                if (jsonArr.size() > 0) {
-                    val userObj = jsonArr[0].asJsonObject
-                    val savedAvatar = userObj.get("avatar_url")?.asString ?: ""
-                    val expectedHash = hashPassword(password)
+            val parsed = try {
+                JsonParser.parseString(bodyStr)
+            } catch (_: Exception) { null }
 
-                    // Extract password hash and previous device
-                    var savedPassHash = ""
-                    if (savedAvatar.startsWith("pwd:")) {
-                        val passPart = savedAvatar.substringAfter("pwd:").substringBefore("|")
-                        savedPassHash = passPart
+            var userObj: JsonObject? = null
+            if (parsed != null && parsed.isJsonArray && parsed.asJsonArray.size() > 0) {
+                val jsonArr = parsed.asJsonArray
+                for (elem in jsonArr) {
+                    if (elem.isJsonObject) {
+                        val obj = elem.asJsonObject
+                        val dbPhone = obj.get("phone")?.asString ?: ""
+                        val cleanDb = dbPhone.replace("[^0-9]".toRegex(), "")
+                        if (cleanDb.endsWith(lastDigits) || cleanDb == cleanPhone || cleanDb == localPhone) {
+                            userObj = obj
+                            break
+                        }
                     }
+                }
+                if (userObj == null && jsonArr.size() > 0) {
+                    userObj = jsonArr[0].asJsonObject
+                }
+            }
 
-                    val isPassMatch = if (savedPassHash.isNotBlank()) {
-                        savedPassHash == expectedHash
-                    } else {
-                        true
-                    }
+            if (userObj != null) {
+                val savedAvatar = userObj.get("avatar_url")?.asString ?: ""
+                val expectedHash = hashPassword(password)
 
-                    if (isPassMatch) {
-                        val userId = userObj.get("id")?.asString ?: "CUST-${cleanPhone.takeLast(6)}"
-                        val fullName = userObj.get("full_name")?.asString ?: "Pelanggan MassaGo"
-                        val deviceId = getOrCreateDeviceId(context)
+                // Extract password hash and previous device
+                var savedPassHash = ""
+                if (savedAvatar.startsWith("pwd:")) {
+                    val passPart = savedAvatar.substringAfter("pwd:").substringBefore("|")
+                    savedPassHash = passPart
+                }
 
-                        val newPassHash = if (savedPassHash.isNotBlank()) savedPassHash else expectedHash
-                        val updatedAvatar = "pwd:$newPassHash|dev:$deviceId"
+                val isPassMatch = if (savedPassHash.isNotBlank()) {
+                    savedPassHash == expectedHash
+                } else {
+                    true
+                }
 
-                        // Update device session in Supabase
-                        try {
-                            val patchPayload = JsonObject().apply {
-                                addProperty("avatar_url", updatedAvatar)
-                            }.toString()
-                            val patchReq = Request.Builder()
-                                .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)")
-                                .header("apikey", SupabaseConfig.ANON_KEY)
-                                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
-                                .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
-                                .build()
-                            SupabaseCustomerClient.instance.client.newCall(patchReq).execute().use { }
-                        } catch (_: Exception) {}
+                if (isPassMatch) {
+                    val userId = userObj.get("id")?.asString ?: "CUST-${cleanPhone.takeLast(6)}"
+                    val fullName = userObj.get("full_name")?.asString ?: "Pelanggan MassaGo"
+                    val deviceId = getOrCreateDeviceId(context)
 
-                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        prefs.edit()
-                            .putBoolean(KEY_IS_LOGGED_IN, true)
-                            .putString(KEY_PHONE, cleanPhone)
-                            .putString(KEY_USER_NAME, fullName)
-                            .putString(KEY_USER_ID, userId)
-                            .apply()
+                    val newPassHash = if (savedPassHash.isNotBlank()) savedPassHash else expectedHash
+                    val updatedAvatar = "pwd:$newPassHash|dev:$deviceId"
 
-                        _currentUserName.value = fullName
-                        _isLoggedIn.value = true
-                        CustomerUserRepository.instance.updateProfileInfo(fullName, cleanPhone, "", userId)
-                        CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
-                        startSessionSecurityMonitor(context)
-                        return@withContext Result.success(true)
-                    } else {
-                        return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))
-                    }
+                    // Update device session in Supabase
+                    try {
+                        val patchPayload = JsonObject().apply {
+                            addProperty("avatar_url", updatedAvatar)
+                        }.toString()
+                        val patchReq = Request.Builder()
+                            .url("${SupabaseConfig.URL}/rest/v1/profiles?id=eq.$userId")
+                            .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                            .build()
+                        SupabaseCustomerClient.instance.client.newCall(patchReq).execute().use { }
+                    } catch (_: Exception) {}
+
+                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean(KEY_IS_LOGGED_IN, true)
+                        .putString(KEY_PHONE, cleanPhone)
+                        .putString(KEY_USER_NAME, fullName)
+                        .putString(KEY_USER_ID, userId)
+                        .apply()
+
+                    _currentUserName.value = fullName
+                    _isLoggedIn.value = true
+                    CustomerUserRepository.instance.updateProfileInfo(fullName, cleanPhone, "", userId)
+                    CustomerOrderRepository.instance.fetchOrderHistoryFromSupabase()
+                    startSessionSecurityMonitor(context)
+                    return@withContext Result.success(true)
+                } else {
+                    return@withContext Result.failure(Exception("Password yang Anda masukkan salah"))
                 }
             }
             Result.failure(Exception("Nomor WhatsApp belum terdaftar. Silakan daftar akun baru."))
@@ -253,8 +268,6 @@ class CustomerAuthRepository private constructor() {
 
                 val checkReq = Request.Builder()
                     .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)&select=id,full_name")
-                    .header("apikey", SupabaseConfig.ANON_KEY)
-                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
 
                 SupabaseCustomerClient.instance.client.newCall(checkReq).execute().use { checkRes ->
@@ -306,8 +319,6 @@ class CustomerAuthRepository private constructor() {
 
             val req = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/profiles")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .header("Prefer", "resolution=merge-duplicates")
                 .post(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
@@ -355,8 +366,6 @@ class CustomerAuthRepository private constructor() {
 
             val req = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .patch(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
@@ -393,15 +402,12 @@ class CustomerAuthRepository private constructor() {
         sessionMonitorJob = coroutineScope.launch {
             val cleanPhone = normalizeIndonesianPhone(savedPhone)
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
-            val intlPhone = "+" + cleanPhone
 
             while (_isLoggedIn.value) {
                 kotlinx.coroutines.delay(4000)
                 try {
                     val req = Request.Builder()
-                        .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone)&select=avatar_url")
-                        .header("apikey", SupabaseConfig.ANON_KEY)
-                        .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                        .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.%2B$cleanPhone)&select=avatar_url")
                         .build()
 
                     SupabaseCustomerClient.instance.client.newCall(req).execute().use { res ->
@@ -449,9 +455,7 @@ class CustomerAuthRepository private constructor() {
             // 1. Delete customer record from Supabase
             val queryParam = if (userId.isNotBlank()) "or=(id.eq.$userId,phone.eq.$cleanPhone,phone.eq.$localPhone)" else "or=(phone.eq.$cleanPhone,phone.eq.$localPhone)"
             val delReq = Request.Builder()
-                .url("${SupabaseConfig.URL}/rest/v1/customers?$queryParam")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                .url("${SupabaseConfig.URL}/rest/v1/profiles?$queryParam")
                 .delete()
                 .build()
 
@@ -460,8 +464,6 @@ class CustomerAuthRepository private constructor() {
             // 2. Delete related orders
             val delOrdersReq = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/orders?customer_phone=eq.$cleanPhone")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .delete()
                 .build()
 

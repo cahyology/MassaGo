@@ -3,9 +3,9 @@ package com.massago.mitra.data.repository
 import android.content.Context
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.massago.mitra.data.model.TherapistProfile
 import com.massago.mitra.data.network.SupabaseClient
 import com.massago.mitra.data.network.SupabaseConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,22 +16,33 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class AuthRepository private constructor() {
 
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private val therapistRepo = TherapistRepository.instance
+
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
     private val _tempPhoneNumber = MutableStateFlow("")
     val tempPhoneNumber: StateFlow<String> = _tempPhoneNumber.asStateFlow()
 
-    private val supabaseClient = SupabaseClient.instance
-    private val therapistRepo = TherapistRepository.instance
+    private val _sessionTerminatedMessage = MutableStateFlow<String?>(null)
+    val sessionTerminatedMessage: StateFlow<String?> = _sessionTerminatedMessage.asStateFlow()
+
+    fun setSessionTerminatedMessage(msg: String) {
+        _sessionTerminatedMessage.value = msg
+    }
+
+    fun clearSessionTerminatedMessage() {
+        _sessionTerminatedMessage.value = null
+    }
 
     companion object {
-        private const val PREFS_NAME = "massago_mitra_auth"
-        private const val KEY_IS_LOGGED_IN = "is_logged_in"
-        private const val KEY_PHONE = "saved_phone"
-        private const val KEY_USER_ID = "saved_user_id"
-        private const val KEY_NAME = "saved_name"
-        private const val KEY_DEVICE_ID = "saved_device_session_id"
+        private const val PREFS_NAME = "massago_mitra_auth_prefs"
+        private const val KEY_IS_LOGGED_IN = "IS_LOGGED_IN"
+        private const val KEY_PHONE = "USER_PHONE"
+        private const val KEY_USER_ID = "USER_ID"
+        private const val KEY_NAME = "USER_NAME"
+        private const val KEY_DEVICE_ID = "DEVICE_SESSION_ID"
 
         val instance: AuthRepository by lazy { AuthRepository() }
 
@@ -53,35 +64,16 @@ class AuthRepository private constructor() {
         }
     }
 
-    private val _sessionTerminatedMessage = MutableStateFlow<String?>(null)
-    val sessionTerminatedMessage: StateFlow<String?> = _sessionTerminatedMessage.asStateFlow()
-
-    fun setSessionTerminatedMessage(msg: String?) {
-        _sessionTerminatedMessage.value = msg
-    }
-
-    fun clearSessionTerminatedMessage() {
-        _sessionTerminatedMessage.value = null
-    }
-
-    fun getOrCreateDeviceId(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        var devId = prefs.getString(KEY_DEVICE_ID, null)
-        if (devId.isNullOrBlank()) {
-            devId = java.util.UUID.randomUUID().toString()
-            prefs.edit().putString(KEY_DEVICE_ID, devId).apply()
-        }
-        return devId
-    }
-
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedLogin = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         val savedPhone = prefs.getString(KEY_PHONE, "") ?: ""
         val savedId = prefs.getString(KEY_USER_ID, "") ?: ""
+        val savedName = prefs.getString(KEY_NAME, "") ?: ""
         _isLoggedIn.value = savedLogin
-        if (savedPhone.isNotBlank() || savedId.isNotBlank()) {
-            therapistRepo.fetchTherapistProfileFromSupabase(savedPhone.ifEmpty { savedId })
+
+        if (savedLogin && savedPhone.isNotBlank()) {
+            therapistRepo.fetchTherapistProfileFromSupabase(savedPhone)
             therapistRepo.startRealtimeAdminSync(context, savedId.ifEmpty { savedPhone })
         }
     }
@@ -92,6 +84,16 @@ class AuthRepository private constructor() {
 
     private var lastGeneratedOtp: String = "1234"
     private var lastOtpExpiresAt: Long = 0L
+
+    fun getOrCreateDeviceId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var devId = prefs.getString(KEY_DEVICE_ID, null)
+        if (devId.isNullOrBlank()) {
+            devId = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_DEVICE_ID, devId).apply()
+        }
+        return devId
+    }
 
     private fun hashPassword(password: String): String {
         val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(password.toByteArray())
@@ -109,13 +111,10 @@ class AuthRepository private constructor() {
         try {
             val cleanPhone = normalizeIndonesianPhone(rawPhone)
             val localPhone = if (cleanPhone.startsWith("62")) "0" + cleanPhone.substring(2) else cleanPhone
-            val intlPhone = "+" + cleanPhone
             val lastDigits = if (cleanPhone.length >= 8) cleanPhone.takeLast(8) else cleanPhone
 
             val req = Request.Builder()
-                .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.$intlPhone,phone.ilike.*$lastDigits*)&select=id,name,phone,gender,tier_badge,deposit_balance,wallet_balance,certifications")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+                .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.%2B$cleanPhone,phone.ilike.*$lastDigits*)&select=id,name,phone,gender,tier_badge,deposit_balance,wallet_balance,certifications")
                 .build()
 
             var bodyStr = "[]"
@@ -196,8 +195,6 @@ class AuthRepository private constructor() {
                         }.toString()
                         val patchReq = Request.Builder()
                             .url("${SupabaseConfig.URL}/rest/v1/therapists?id=eq.$userId")
-                            .header("apikey", SupabaseConfig.ANON_KEY)
-                            .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                             .patch(patchPayload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                             .build()
                         SupabaseClient.instance.client.newCall(patchReq).execute().use { }
@@ -288,8 +285,6 @@ class AuthRepository private constructor() {
 
                 val checkReq = Request.Builder()
                     .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)&select=id,name")
-                    .header("apikey", SupabaseConfig.ANON_KEY)
-                    .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
 
                 SupabaseClient.instance.client.newCall(checkReq).execute().use { checkRes ->
@@ -361,8 +356,6 @@ class AuthRepository private constructor() {
 
             val req = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/therapists")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .header("Prefer", "resolution=merge-duplicates")
                 .post(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
@@ -410,8 +403,6 @@ class AuthRepository private constructor() {
             // Fetch current therapist data
             val getReq = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)&select=*")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .build()
 
             var getBody = "[]"
@@ -459,8 +450,6 @@ class AuthRepository private constructor() {
 
             val patchReq = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .patch(payload.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
@@ -516,8 +505,6 @@ class AuthRepository private constructor() {
             val queryParam = if (userId.isNotBlank()) "or=(id.eq.$userId,phone.eq.$cleanPhone,phone.eq.$localPhone)" else "or=(phone.eq.$cleanPhone,phone.eq.$localPhone)"
             val delReq = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/therapists?$queryParam")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .delete()
                 .build()
 
@@ -526,8 +513,6 @@ class AuthRepository private constructor() {
             // 2. Delete related orders
             val delOrdersReq = Request.Builder()
                 .url("${SupabaseConfig.URL}/rest/v1/orders?therapist_id=eq.$userId")
-                .header("apikey", SupabaseConfig.ANON_KEY)
-                .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .delete()
                 .build()
 

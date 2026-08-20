@@ -189,7 +189,7 @@ class CustomerUserRepository private constructor() {
                 val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
 
                 val req = Request.Builder()
-                    .url("${SupabaseConfig.URL}/rest/v1/customers?or=(phone.eq.$clean,phone.eq.$localPhone)&select=*")
+                    .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$clean,phone.eq.$localPhone,phone.eq.%2B$clean)&select=*")
                     .header("apikey", SupabaseConfig.ANON_KEY)
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
@@ -361,7 +361,7 @@ class CustomerUserRepository private constructor() {
                     addProperty("wallet_balance", newBalance)
                 }.toString()
                 val req = Request.Builder()
-                    .url("${SupabaseConfig.URL}/rest/v1/customers?phone=eq.$clean")
+                    .url("${SupabaseConfig.URL}/rest/v1/profiles?phone=eq.$clean")
                     .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                     .header("apikey", SupabaseConfig.ANON_KEY)
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
@@ -596,7 +596,7 @@ class CustomerUserRepository private constructor() {
             }
 
             val req = Request.Builder()
-                .url("${SupabaseConfig.URL}/rest/v1/customers?or=(phone.eq.$cleanPhone,phone.eq.$localPhone)")
+                .url("${SupabaseConfig.URL}/rest/v1/profiles?or=(phone.eq.$cleanPhone,phone.eq.$localPhone,phone.eq.%2B$cleanPhone)")
                 .header("apikey", SupabaseConfig.ANON_KEY)
                 .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                 .patch(payload.toString().toRequestBody(SupabaseConfig.JSON_MEDIA))
