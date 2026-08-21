@@ -366,6 +366,10 @@ class SupabaseClient(
      * Update order status throughout therapy lifecycle
      */
     suspend fun updateOrderStatus(orderId: String, newStatus: String, cancellationReason: String = ""): Boolean = withContext(Dispatchers.IO) {
+        val cleanOrderId = orderId.trim()
+        var isUpdated = false
+
+        // Attempt 1: Full payload with cancellation_reason and notes
         try {
             val bodyJson = JsonObject().apply {
                 addProperty("status", newStatus)
@@ -376,17 +380,61 @@ class SupabaseClient(
             }.toString()
 
             val request = Request.Builder()
-                .url("$baseUrl/rest/v1/orders?id=eq.$orderId")
+                .url("$baseUrl/rest/v1/orders?id=eq.$cleanOrderId")
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
             client.newCall(request).execute().use { response ->
-                response.isSuccessful
+                isUpdated = response.isSuccessful
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            false
         }
+
+        // Attempt 2: Fallback without cancellation_reason column
+        if (!isUpdated) {
+            try {
+                val fallbackJson = JsonObject().apply {
+                    addProperty("status", newStatus)
+                    if (cancellationReason.isNotBlank()) {
+                        addProperty("notes", "[CANCEL_REASON:$cancellationReason]")
+                    }
+                }.toString()
+
+                val fallbackReq = Request.Builder()
+                    .url("$baseUrl/rest/v1/orders?id=eq.$cleanOrderId")
+                    .patch(fallbackJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                    .build()
+
+                client.newCall(fallbackReq).execute().use { response ->
+                    isUpdated = response.isSuccessful
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Attempt 3: Bare minimum status update
+        if (!isUpdated) {
+            try {
+                val simpleJson = JsonObject().apply {
+                    addProperty("status", newStatus)
+                }.toString()
+
+                val simpleReq = Request.Builder()
+                    .url("$baseUrl/rest/v1/orders?id=eq.$cleanOrderId")
+                    .patch(simpleJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                    .build()
+
+                client.newCall(simpleReq).execute().use { response ->
+                    isUpdated = response.isSuccessful
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        isUpdated
     }
 
     /**

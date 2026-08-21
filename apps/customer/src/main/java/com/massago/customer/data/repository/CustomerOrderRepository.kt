@@ -547,7 +547,7 @@ class CustomerOrderRepository private constructor(
                                         timerJob?.cancel()
                                         CustomerOrderStatus.TREATMENT_FINISHED_PAYMENT
                                     }
-                                    statusStr == "ARRIVED" -> CustomerOrderStatus.THERAPIST_ARRIVED
+                                    statusStr == "ARRIVED" || statusStr == "ARRIVED_AT_LOCATION" -> CustomerOrderStatus.THERAPIST_ARRIVED
                                     statusStr == "TREATMENT_IN_PROGRESS" || statusStr == "IN_SERVICE" -> {
                                         if (timerJob == null || timerJob?.isActive == false) {
                                             startTreatmentTimer()

@@ -791,13 +791,22 @@ class OrderRepository private constructor(
         )
         therapistRepository.addEarnings(compensationAmount)
 
-        // 2. Dispatch Incident Alert to Supabase SOS Emergency Logs & Update Order
+        // 2. Dispatch Order Cancellation to Supabase & Post SOS Incident Alert
         coroutineScope.launch(Dispatchers.IO) {
+            val effectiveTherapistId = profile.id.ifBlank { profile.phone.ifBlank { "TRP-8821" } }
+
+            // 2a. Update order status in Supabase to CANCELLED with exact reason
             try {
-                // Send SOS incident log for immediate Superadmin audit
+                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED", reason)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 2b. Send SOS incident log for immediate Superadmin audit
+            try {
                 SupabaseClient.instance.sendSosAlert(
                     senderType = "THERAPIST",
-                    senderId = profile.id,
+                    senderId = effectiveTherapistId,
                     senderName = profile.name,
                     senderPhone = profile.phone,
                     orderId = current.id,
@@ -806,9 +815,6 @@ class OrderRepository private constructor(
                     emergencyType = "SAFETY_REFUSAL_MISMATCH",
                     notes = "Hak Tolak di Tempat: $reason. Catatan: $notes"
                 )
-
-                // Update order status in Supabase to CANCELLED with reason
-                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED", reason)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
