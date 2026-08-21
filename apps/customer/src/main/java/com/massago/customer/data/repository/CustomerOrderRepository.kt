@@ -607,7 +607,7 @@ class CustomerOrderRepository private constructor(
                     e.printStackTrace()
                 }
 
-                delay(2000)
+                delay(1200)
             }
         }
     }

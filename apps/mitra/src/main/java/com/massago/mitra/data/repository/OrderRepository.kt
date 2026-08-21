@@ -540,11 +540,13 @@ class OrderRepository private constructor(
         therapistRepository.setDutyStatus(DutyStatus.ON_DUTY_BUSY)
         chatRepository.initializeChatForOrder(current.client.name, current.id)
 
+        val profile = therapistRepository.therapistProfile.value
+        val effectiveId = profile.id.ifBlank { profile.phone.ifBlank { "TRP-8821" } }
+
         coroutineScope.launch(Dispatchers.IO) {
-            val profile = therapistRepository.therapistProfile.value
             SupabaseClient.instance.acceptOrder(
                 orderId = current.id,
-                therapistId = profile.id,
+                therapistId = effectiveId,
                 therapistLat = profile.latitude,
                 therapistLng = profile.longitude
             )

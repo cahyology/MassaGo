@@ -288,32 +288,66 @@ class SupabaseClient(
      * Accept an incoming order atomically with therapist GPS coordinates
      */
     suspend fun acceptOrder(orderId: String, therapistId: String, therapistLat: Double = 0.0, therapistLng: Double = 0.0): Boolean = withContext(Dispatchers.IO) {
+        val cleanOrderId = orderId.trim()
+        val profile = com.massago.mitra.data.repository.TherapistRepository.instance.therapistProfile.value
+        val effectiveTherapistId = therapistId.ifBlank { profile.id.ifBlank { profile.phone.ifBlank { "TRP-8821" } } }
+        val lat = if (therapistLat != 0.0) therapistLat else profile.latitude
+        val lng = if (therapistLng != 0.0) therapistLng else profile.longitude
+
+        var isOrderUpdated = false
+
+        // 1. Primary update on orders table in Supabase
         try {
-            val profile = com.massago.mitra.data.repository.TherapistRepository.instance.therapistProfile.value
-            val lat = if (therapistLat != 0.0) therapistLat else profile.latitude
-            val lng = if (therapistLng != 0.0) therapistLng else profile.longitude
-
-            updateLocationAndDuty(therapistId, lat, lng, isOnline = true)
-
             val bodyJson = JsonObject().apply {
-                addProperty("status", "ACCEPTED")
-                addProperty("therapist_id", therapistId)
-                addProperty("latitude", lat)
-                addProperty("longitude", lng)
+                addProperty("status", "ACCEPTED_ON_THE_WAY")
+                addProperty("therapist_id", effectiveTherapistId)
+                if (lat != 0.0) addProperty("latitude", lat)
+                if (lng != 0.0) addProperty("longitude", lng)
             }.toString()
 
             val request = Request.Builder()
-                .url("$baseUrl/rest/v1/orders?id=eq.$orderId")
+                .url("$baseUrl/rest/v1/orders?id=eq.$cleanOrderId")
                 .patch(bodyJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                 .build()
 
             client.newCall(request).execute().use { response ->
-                response.isSuccessful
+                isOrderUpdated = response.isSuccessful
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            false
         }
+
+        // 2. Fallback update if first attempt failed
+        if (!isOrderUpdated) {
+            try {
+                val simpleJson = JsonObject().apply {
+                    addProperty("status", "ACCEPTED_ON_THE_WAY")
+                    addProperty("therapist_id", effectiveTherapistId)
+                }.toString()
+
+                val simpleReq = Request.Builder()
+                    .url("$baseUrl/rest/v1/orders?id=eq.$cleanOrderId")
+                    .patch(simpleJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
+                    .build()
+
+                client.newCall(simpleReq).execute().use { response ->
+                    isOrderUpdated = response.isSuccessful
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // 3. Update therapist location & duty separately
+        try {
+            if (effectiveTherapistId.isNotBlank()) {
+                updateLocationAndDuty(effectiveTherapistId, lat, lng, isOnline = true)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        isOrderUpdated
     }
 
     suspend fun updateTherapistGpsForOrder(orderId: String, lat: Double, lng: Double): Boolean = withContext(Dispatchers.IO) {
