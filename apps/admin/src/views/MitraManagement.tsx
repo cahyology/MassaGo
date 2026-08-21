@@ -21,17 +21,20 @@ import {
 } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
-import { Therapist, KycApplication, DutyStatus } from '../types';
+import { Therapist, KycApplication, DutyStatus, Order } from '../types';
 import { updateTherapist, supabase } from '../lib/supabase';
+import { computeTherapistEffectiveStatus } from '../components/map/LiveFleetMap';
 
 interface MitraManagementProps {
   therapists: Therapist[];
+  orders?: Order[];
   initialSubTab?: 'fleet' | 'kyc';
   onRefresh: () => void;
 }
 
 export const MitraManagement: React.FC<MitraManagementProps> = ({
   therapists,
+  orders = [],
   initialSubTab = 'fleet',
   onRefresh,
 }) => {
@@ -63,7 +66,8 @@ export const MitraManagement: React.FC<MitraManagementProps> = ({
 
     if (!matchesSearch) return false;
     if (genderFilter !== 'ALL' && t.gender !== genderFilter) return false;
-    if (statusFilter !== 'ALL' && t.duty_status !== statusFilter) return false;
+    const effectiveStatus = computeTherapistEffectiveStatus(t, orders);
+    if (statusFilter !== 'ALL' && effectiveStatus !== statusFilter) return false;
     return true;
   });
 
@@ -200,8 +204,9 @@ export const MitraManagement: React.FC<MitraManagementProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {filteredTherapists.map((therapist) => {
-                    const isBusy = therapist.duty_status === 'ON_DUTY_BUSY';
-                    const isOnline = therapist.duty_status === 'ONLINE' || (therapist.is_online && !isBusy);
+                    const effectiveStatus = computeTherapistEffectiveStatus(therapist, orders);
+                    const isBusy = effectiveStatus === 'ON_DUTY_BUSY';
+                    const isOnline = effectiveStatus === 'ONLINE';
 
                     return (
                       <tr key={therapist.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">

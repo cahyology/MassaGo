@@ -18,7 +18,7 @@ import {
 import { StatCard } from '../components/common/StatCard';
 import { Badge } from '../components/common/Badge';
 import { Therapist, Order, ServicePackage, ActiveTab } from '../types';
-import { cleanAddressText } from '../components/map/LiveFleetMap';
+import { cleanAddressText, computeTherapistEffectiveStatus } from '../components/map/LiveFleetMap';
 
 interface DashboardOverviewProps {
   therapists: Therapist[];
@@ -36,7 +36,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // Financial & Operational Computations from Real Supabase Data
   const totalGmv = orders.reduce((acc, curr) => acc + (curr.total_price || 0), 0);
   const platformFee = Math.round(totalGmv * 0.2); // 20% platform commission
-  const onlineMitra = therapists.filter((t) => t.is_online || t.duty_status === 'ONLINE').length;
+  const onlineMitra = therapists.filter((t) => computeTherapistEffectiveStatus(t, orders) !== 'OFFLINE').length;
   const activeOrders = orders.filter(
     (o) =>
       o.status === 'PENDING' ||

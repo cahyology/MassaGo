@@ -92,14 +92,10 @@ class TherapistRepository private constructor() {
                 val currentPhone = _therapistProfile.value.phone
                 if (currentId.isNotBlank() || currentPhone.isNotBlank()) {
                     try {
-                        var clean = (currentPhone.ifEmpty { currentId }).replace("[^0-9]".toRegex(), "")
-                        if (clean.startsWith("0")) clean = "62" + clean.substring(1)
-                        else if (clean.startsWith("8")) clean = "62" + clean
-
-                        val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+                        val queryTarget = buildPostgrestTherapistQuery(currentId, currentPhone)
 
                         val req = Request.Builder()
-                            .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications,preferred_client_gender")
+                            .url("${SupabaseConfig.URL}/rest/v1/therapists?$queryTarget&select=id,name,phone,gender,is_online,duty_status,tier_badge,deposit_balance,wallet_balance,rating,orders_completed,latitude,longitude,certifications,preferred_client_gender")
                             .header("apikey", SupabaseConfig.ANON_KEY)
                             .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                             .build()
@@ -305,14 +301,10 @@ class TherapistRepository private constructor() {
     fun fetchTherapistProfileFromSupabase(phoneOrId: String) {
         scope.launch {
             try {
-                var clean = phoneOrId.replace("[^0-9]".toRegex(), "")
-                if (clean.startsWith("0")) clean = "62" + clean.substring(1)
-                else if (clean.startsWith("8")) clean = "62" + clean
-
-                val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+                val queryTarget = buildPostgrestTherapistQuery(if (phoneOrId.startsWith("TRP-") || phoneOrId.contains("-")) phoneOrId else "", phoneOrId)
 
                 val req = Request.Builder()
-                    .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$phoneOrId,phone.eq.$clean,phone.eq.$localPhone)&select=*")
+                    .url("${SupabaseConfig.URL}/rest/v1/therapists?$queryTarget&select=*")
                     .header("apikey", SupabaseConfig.ANON_KEY)
                     .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
                     .build()
@@ -430,19 +422,17 @@ class TherapistRepository private constructor() {
         _therapistProfile.update { it.copy(dutyStatus = status) }
 
         if (currentId.isNotBlank() || currentPhone.isNotBlank()) {
-            scope.launch {
+            scope.launch(Dispatchers.IO) {
                 try {
                     val updateJson = com.google.gson.JsonObject().apply {
                         addProperty("is_online", isOnlineBool)
                         addProperty("duty_status", status.name)
                     }.toString()
 
-                    var clean = (currentPhone.ifEmpty { currentId }).replace("[^0-9]".toRegex(), "")
-                    if (clean.startsWith("0")) clean = "62" + clean.substring(1)
-                    val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+                    val queryTarget = buildPostgrestTherapistQuery(currentId, currentPhone)
 
                     val req = Request.Builder()
-                        .url("${SupabaseConfig.URL}/rest/v1/therapists?or=(id.eq.$currentId,phone.eq.$clean,phone.eq.$localPhone)")
+                        .url("${SupabaseConfig.URL}/rest/v1/therapists?$queryTarget")
                         .patch(updateJson.toRequestBody(SupabaseConfig.JSON_MEDIA))
                         .header("apikey", SupabaseConfig.ANON_KEY)
                         .header("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
@@ -452,6 +442,20 @@ class TherapistRepository private constructor() {
                 } catch (_: Exception) {}
             }
         }
+    }
+
+    private fun buildPostgrestTherapistQuery(id: String, phone: String): String {
+        val orClauses = mutableListOf<String>()
+        if (id.isNotBlank()) orClauses.add("id.eq.$id")
+        var clean = (phone.ifEmpty { id }).replace("[^0-9]".toRegex(), "")
+        if (clean.startsWith("0")) clean = "62" + clean.substring(1)
+        else if (clean.startsWith("8")) clean = "62" + clean
+        val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+
+        if (clean.isNotBlank()) orClauses.add("phone.eq.$clean")
+        if (localPhone.isNotBlank() && localPhone != clean) orClauses.add("phone.eq.$localPhone")
+
+        return if (orClauses.isNotEmpty()) "or=(${orClauses.joinToString(",")})" else if (id.isNotBlank()) "id=eq.$id" else "phone=eq.$clean"
     }
 
     fun isPersistedOnline(): Boolean {

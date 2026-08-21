@@ -78,10 +78,16 @@ export function computeTherapistEffectiveStatus(
   const orders = ordersList || [];
 
   const hasActiveOrder = orders.some((o) => {
+    if (!o.therapist_id) return false;
+    const cleanOrderId = o.therapist_id.trim();
+    const cleanPhone = (therapist.phone || '').replace(/\D/g, '');
+    const cleanOrderTherapist = cleanOrderId.replace(/\D/g, '');
+
     const isMatched =
-      o.therapist_id === therapist.id ||
-      (therapist.phone && o.therapist_id && o.therapist_id.includes(therapist.phone)) ||
-      (therapist.id && o.therapist_id && o.therapist_id.includes(therapist.id));
+      cleanOrderId === therapist.id ||
+      (cleanPhone && cleanOrderTherapist && cleanPhone === cleanOrderTherapist) ||
+      cleanOrderId.includes(therapist.id);
+
     const isActiveStatus = [
       'ACCEPTED',
       'ACCEPTED_ON_THE_WAY',
@@ -89,14 +95,16 @@ export function computeTherapistEffectiveStatus(
       'ARRIVED_AT_LOCATION',
       'IN_SERVICE',
       'TREATMENT_IN_PROGRESS',
+      'SANITATION_AND_PREP',
     ].includes(o.status);
+
     return isMatched && isActiveStatus;
   });
 
-  if (hasActiveOrder || therapist.duty_status === 'ON_DUTY_BUSY') {
+  if (hasActiveOrder) {
     return 'ON_DUTY_BUSY';
   }
-  if (therapist.duty_status === 'ONLINE' || therapist.is_online) {
+  if (therapist.is_online || therapist.duty_status === 'ONLINE' || therapist.duty_status === 'ON_DUTY_BUSY') {
     return 'ONLINE';
   }
   return 'OFFLINE';

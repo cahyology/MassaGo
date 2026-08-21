@@ -14,6 +14,7 @@ import { SosIncidentCenter } from '../../views/SosIncidentCenter';
 import { FinanceLedger } from '../../views/FinanceLedger';
 import { PaymentSettingsManager } from '../../views/PaymentSettingsManager';
 import { ActiveTab, Therapist, Order, ServicePackage, PromoVoucher, CustomerProfile } from '../../types';
+import { computeTherapistEffectiveStatus } from '../../components/map/LiveFleetMap';
 import {
   getTherapists,
   getOrders,
@@ -166,7 +167,7 @@ export default function AdminPage() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onlineMitraCount={therapists.filter((t) => t.is_online).length}
+        onlineMitraCount={therapists.filter((t) => computeTherapistEffectiveStatus(t, orders) !== 'OFFLINE').length}
         activeOrdersCount={orders.filter((o) => !['COMPLETED_PAYMENT', 'REVIEW_SUBMITTED', 'CANCELLED'].includes(o.status)).length}
         pendingKycCount={therapists.filter((t) => !t.is_active).length}
         activeSosCount={activeSosCount}
@@ -233,6 +234,7 @@ export default function AdminPage() {
           {activeTab === 'mitra' && (
             <MitraManagement
               therapists={therapists}
+              orders={orders}
               onRefresh={loadData}
             />
           )}
