@@ -456,10 +456,7 @@ fun OrderTrackingScreen(
                             order.assignedTherapist.longitude
                         )
                     } else {
-                        com.google.android.gms.maps.model.LatLng(
-                            order.location.latitude - 0.008,
-                            order.location.longitude - 0.006
-                        )
+                        custPos
                     }
 
                     val isSearchingTherapist = (order.status == CustomerOrderStatus.SEARCHING_THERAPIST || order.assignedTherapist == null)

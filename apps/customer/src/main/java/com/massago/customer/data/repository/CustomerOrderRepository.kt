@@ -503,8 +503,8 @@ class CustomerOrderRepository private constructor(
                                 val rawTLat = (dbTherapist?.get("latitude") as? Number)?.toDouble()
                                 val rawTLng = (dbTherapist?.get("longitude") as? Number)?.toDouble()
 
-                                val finalTLat = rawTLat ?: (custLat - 0.006)
-                                val finalTLng = rawTLng ?: (custLng - 0.005)
+                                val finalTLat = if (rawTLat != null && rawTLat != 0.0) rawTLat else (_activeOrder.value?.assignedTherapist?.latitude?.takeIf { it != 0.0 } ?: custLat)
+                                val finalTLng = if (rawTLng != null && rawTLng != 0.0) rawTLng else (_activeOrder.value?.assignedTherapist?.longitude?.takeIf { it != 0.0 } ?: custLng)
 
                                 val dLat = Math.toRadians(custLat - finalTLat)
                                 val dLng = Math.toRadians(custLng - finalTLng)
