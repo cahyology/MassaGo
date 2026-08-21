@@ -103,7 +103,11 @@ fun CustomerMapTracker(
                 rawBearing = GoogleDirectionsHelper.calculateBearing(previousTherapistPos, therapistLocation)
             }
 
-            val startPos = animatedTherapistPos
+            val startPos = if (animatedTherapistPos == customerLocation || previousTherapistPos == customerLocation) {
+                therapistLocation
+            } else {
+                animatedTherapistPos
+            }
             val targetPos = therapistLocation
             val animProgress = Animatable(0f)
 
@@ -136,13 +140,13 @@ fun CustomerMapTracker(
             routeEtaMinutes = 0
         } else {
             val shouldRecalculate = fullRoutePoints.isEmpty() ||
-                    GoogleDirectionsHelper.distanceInMeters(therapistLocation, fullRoutePoints.firstOrNull() ?: therapistLocation) > 80.0
+                    GoogleDirectionsHelper.distanceInMeters(therapistLocation, fullRoutePoints.firstOrNull() ?: therapistLocation) > 60.0
 
             if (shouldRecalculate) {
                 val info = GoogleDirectionsHelper.getDrivingRouteInfo(therapistLocation, customerLocation)
                 if (info.points.size >= 2) {
                     fullRoutePoints = info.points
-                    remainingRoutePoints = GoogleDirectionsHelper.trimPassedRoute(animatedTherapistPos, info.points)
+                    remainingRoutePoints = info.points
                     routeDistanceKm = info.distanceKm
                     routeEtaMinutes = info.durationMinutes
 
