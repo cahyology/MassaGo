@@ -260,12 +260,14 @@ class SupabaseClient(
     }
 
     /**
-     * Decline or Expire an unhandled order
+     * Decline or Expire an unhandled order with reason
      */
-    suspend fun declineOrder(orderId: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun declineOrder(orderId: String, reason: String = "Ditolak oleh mitra"): Boolean = withContext(Dispatchers.IO) {
         try {
             val bodyJson = JsonObject().apply {
                 addProperty("status", "DECLINED")
+                addProperty("cancellation_reason", reason)
+                addProperty("notes", "[CANCEL_REASON:$reason]")
             }.toString()
 
             val request = Request.Builder()
@@ -294,8 +296,10 @@ class SupabaseClient(
             updateLocationAndDuty(therapistId, lat, lng, isOnline = true)
 
             val bodyJson = JsonObject().apply {
+                addProperty("status", "ACCEPTED")
                 addProperty("therapist_id", therapistId)
-                addProperty("status", "ACCEPTED_ON_THE_WAY")
+                addProperty("latitude", lat)
+                addProperty("longitude", lng)
             }.toString()
 
             val request = Request.Builder()
@@ -327,10 +331,14 @@ class SupabaseClient(
     /**
      * Update order status throughout therapy lifecycle
      */
-    suspend fun updateOrderStatus(orderId: String, newStatus: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun updateOrderStatus(orderId: String, newStatus: String, cancellationReason: String = ""): Boolean = withContext(Dispatchers.IO) {
         try {
             val bodyJson = JsonObject().apply {
                 addProperty("status", newStatus)
+                if (cancellationReason.isNotBlank()) {
+                    addProperty("cancellation_reason", cancellationReason)
+                    addProperty("notes", "[CANCEL_REASON:$cancellationReason]")
+                }
             }.toString()
 
             val request = Request.Builder()

@@ -69,6 +69,9 @@ data class CustomerOrder(
     val reviewComment: String = "",
     val reviewTags: List<String> = emptyList(),
     
+    // Cancellation
+    val cancellationReason: String? = null,
+
     val createdAtMillis: Long = System.currentTimeMillis()
 ) {
     val subtotal: Long get() = basePrice + selectedAroma.extraFee

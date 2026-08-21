@@ -142,6 +142,11 @@ class CustomerOrderRepository private constructor(
                                 avatarInitials = therapistName.take(2).uppercase()
                             )
 
+                            val cancelReason = (row["cancellation_reason"] as? String)
+                                ?: (row["cancel_reason"] as? String)
+                                ?: Regex("\\[CANCEL_REASON:(.*?)\\]").find(row["notes"] as? String ?: "")?.groupValues?.getOrNull(1)
+                                ?: Regex("\\[CANCEL_REASON:(.*?)\\]").find(rawAddress)?.groupValues?.getOrNull(1)
+
                             CustomerOrder(
                                 id = id,
                                 service = service,
@@ -155,6 +160,7 @@ class CustomerOrderRepository private constructor(
                                 discountAmount = 0L,
                                 tipAmount = 0L,
                                 paymentMethod = CustomerPaymentMethod.PIJATIN_PAY,
+                                cancellationReason = cancelReason,
                                 createdAtMillis = createdAt
                             )
                         } catch (_: Exception) {
@@ -580,10 +586,17 @@ class CustomerOrderRepository private constructor(
                             }
                         } else if (statusStr.startsWith("CANCEL") || statusStr == "DECLINED") {
                             timerJob?.cancel()
+                            val reasonFromDb = (orderData["cancellation_reason"] as? String)
+                                ?: (orderData["cancel_reason"] as? String)
+                                ?: Regex("\\[CANCEL_REASON:(.*?)\\]").find(orderData["notes"] as? String ?: "")?.groupValues?.getOrNull(1)
+                                ?: Regex("\\[CANCEL_REASON:(.*?)\\]").find(orderData["address"] as? String ?: "")?.groupValues?.getOrNull(1)
+                                ?: if (statusStr == "DECLINED") "Mitra sedang tidak dapat menerima pesanan saat ini" else "Pesanan dibatalkan oleh mitra"
+
                             withContext(Dispatchers.Main) {
                                 _activeOrder.update { current ->
                                     current?.copy(
-                                        status = CustomerOrderStatus.CANCELLED
+                                        status = CustomerOrderStatus.CANCELLED,
+                                        cancellationReason = reasonFromDb
                                     )
                                 }
                             }

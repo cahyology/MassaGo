@@ -135,6 +135,49 @@ fun OrderTrackingScreen(
     }
 
     if (order.status == CustomerOrderStatus.CANCELLED) {
+        val rawReason = order.cancellationReason?.ifBlank { null } ?: "Dibatalkan oleh Mitra Terapis"
+        val isSafetySop = rawReason.contains("SOP", ignoreCase = true) ||
+                rawReason.contains("Gender", ignoreCase = true) ||
+                rawReason.contains("Penerima", ignoreCase = true) ||
+                rawReason.contains("Asusila", ignoreCase = true) ||
+                rawReason.contains("Mabuk", ignoreCase = true) ||
+                rawReason.contains("Keselamatan", ignoreCase = true)
+
+        val isBreak = rawReason.contains("makan", ignoreCase = true) ||
+                rawReason.contains("ibadah", ignoreCase = true) ||
+                rawReason.contains("istirahat", ignoreCase = true)
+
+        val isVehicle = rawReason.contains("kendaraan", ignoreCase = true) ||
+                rawReason.contains("kendala", ignoreCase = true) ||
+                rawReason.contains("mogok", ignoreCase = true)
+
+        val isDistance = rawReason.contains("jauh", ignoreCase = true) ||
+                rawReason.contains("radius", ignoreCase = true)
+
+        val isSupplies = rawReason.contains("minyak", ignoreCase = true) ||
+                rawReason.contains("perlengkapan", ignoreCase = true) ||
+                rawReason.contains("habis", ignoreCase = true)
+
+        val dialogTitle = if (isSafetySop) "Penyesuaian SOP Layanan" else "Pesanan Dibatalkan oleh Mitra"
+
+        val iconEmoji = when {
+            isBreak -> "🍲"
+            isVehicle -> "🛵"
+            isDistance -> "📍"
+            isSupplies -> "🧴"
+            isSafetySop -> "🛡️"
+            else -> "⚠️"
+        }
+
+        val explanationText = when {
+            isBreak -> "Mitra terapis sedang istirahat makan / ibadah sehingga belum dapat melayani pesanan saat ini."
+            isVehicle -> "Mitra terapis mengalami kendala teknis pada kendaraan saat menuju lokasi Anda."
+            isDistance -> "Mitra terapis tidak dapat menerima pesanan karena lokasi di luar jangkauan operasional saat ini."
+            isSupplies -> "Mitra terapis kehabisan minyak aromaterapi / perlengkapan higienis steril."
+            isSafetySop -> "Mitra membatalkan pesanan terkait penyesuaian SOP keselamatan & gender penerima layanan di lokasi."
+            else -> "Mitra terapis telah membatalkan pesanan ini."
+        }
+
         androidx.compose.ui.window.Dialog(
             onDismissRequest = {
                 viewModel.clearActiveOrder()
@@ -148,44 +191,87 @@ fun OrderTrackingScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(60.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFFEF2F2)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Cancel,
-                            contentDescription = null,
-                            tint = Color(0xFFDC2626),
-                            modifier = Modifier.size(36.dp)
-                        )
+                        Text(text = iconEmoji, fontSize = 28.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "Pesanan Dibatalkan oleh Mitra",
+                        text = dialogTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF991B1B)
+                        color = Color(0xFF991B1B),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Mitra terapis membatalkan pesanan karena penyesuaian SOP keselamatan/gender penerima layanan di lokasi (Pasal 281 KUHP). Tidak ada biaya yang dikenakan pada akun Anda.",
+                        text = explanationText,
                         fontSize = 12.5.sp,
                         color = TextSecondary,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         lineHeight = 18.sp
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Alasan yang dipilih Mitra:",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF64748B)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "\"$rawReason\"",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFECFDF5),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🛡️", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Dana/saldo Anda 100% aman & tidak ada biaya terpotong.",
+                                fontSize = 10.5.sp,
+                                color = Color(0xFF047857),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     Button(
                         onClick = {

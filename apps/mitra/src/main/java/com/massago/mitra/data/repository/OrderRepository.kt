@@ -594,7 +594,7 @@ class OrderRepository private constructor(
             dismissedOrderIds.add(current.id)
             prefs?.edit()?.remove("ACTIVE_ORDER_ID")?.apply()
             coroutineScope.launch(Dispatchers.IO) {
-                SupabaseClient.instance.declineOrder(current.id)
+                SupabaseClient.instance.declineOrder(current.id, reason)
             }
         }
         _activeOrder.value = null
@@ -805,8 +805,8 @@ class OrderRepository private constructor(
                     notes = "Hak Tolak di Tempat: $reason. Catatan: $notes"
                 )
 
-                // Update order status in Supabase to CANCELLED_SAFETY_MISMATCH
-                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED_SAFETY_MISMATCH")
+                // Update order status in Supabase to CANCELLED with reason
+                SupabaseClient.instance.updateOrderStatus(current.id, "CANCELLED", reason)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
