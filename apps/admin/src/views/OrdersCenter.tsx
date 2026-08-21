@@ -15,6 +15,7 @@ import {
   Sparkles,
   AlertCircle,
   RefreshCw,
+  ShieldAlert,
 } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
@@ -26,6 +27,21 @@ interface OrdersCenterProps {
   orders: Order[];
   therapists: Therapist[];
   onRefresh: () => void;
+}
+
+function getOrderCancellationReason(order: Order): string | null {
+  if (order.cancellation_reason && order.cancellation_reason.trim()) {
+    return order.cancellation_reason.trim();
+  }
+  if (order.notes) {
+    const match = order.notes.match(/\[CANCEL_REASON:(.*?)\]/);
+    if (match && match[1]) return match[1].trim();
+  }
+  if (order.address) {
+    const match = order.address.match(/\[CANCEL_REASON:(.*?)\]/);
+    if (match && match[1]) return match[1].trim();
+  }
+  return null;
 }
 
 export const OrdersCenter: React.FC<OrdersCenterProps> = ({
@@ -46,26 +62,31 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
     { id: 'ACCEPTED_ON_THE_WAY', label: '🛵 Menuju Lokasi' },
     { id: 'TREATMENT_IN_PROGRESS', label: '💆 Sedang Sesi' },
     { id: 'COMPLETED_PAYMENT', label: '✓ Selesai' },
-    { id: 'CANCELLED_SAFETY_MISMATCH', label: '🚫 Dibatalkan Mitra (SOP/Gender)' },
+    { id: 'DECLINED', label: '🚫 Ditolak Mitra' },
+    { id: 'CANCELLED_SAFETY_MISMATCH', label: '🛡️ Hak Tolak SOP' },
     { id: 'CANCELLED', label: '✕ Dibatalkan' },
   ];
 
   const filteredOrders = orders.filter((order) => {
+    const cancelReason = getOrderCancellationReason(order) || '';
     const matchesSearch =
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.customer_phone || '').includes(searchQuery) ||
-      (order.service_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (order.service_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cancelReason.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
     if (statusFilter === 'ALL') return true;
     if (statusFilter === 'PENDING') return order.status === 'PENDING';
     if (statusFilter === 'ACCEPTED_ON_THE_WAY')
-      return order.status === 'ACCEPTED_ON_THE_WAY' || order.status === 'ARRIVED_AT_LOCATION';
+      return order.status === 'ACCEPTED' || order.status === 'ACCEPTED_ON_THE_WAY' || order.status === 'ARRIVED_AT_LOCATION' || order.status === 'ARRIVED';
     if (statusFilter === 'TREATMENT_IN_PROGRESS')
-      return order.status === 'TREATMENT_IN_PROGRESS' || order.status === 'IN_SERVICE';
+      return order.status === 'TREATMENT_IN_PROGRESS' || order.status === 'IN_SERVICE' || order.status === 'SANITATION_AND_PREP';
     if (statusFilter === 'COMPLETED_PAYMENT')
-      return order.status.startsWith('COMPLETE') || order.status === 'REVIEW_SUBMITTED';
+      return order.status.startsWith('COMPLETE') || order.status === 'FINISHED' || order.status === 'REVIEW_SUBMITTED';
+    if (statusFilter === 'DECLINED')
+      return order.status === 'DECLINED';
     if (statusFilter === 'CANCELLED_SAFETY_MISMATCH')
       return order.status === 'CANCELLED_SAFETY_MISMATCH' || order.status === 'CANCELLED_BY_THERAPIST';
     if (statusFilter === 'CANCELLED')
@@ -122,7 +143,7 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Cari order ID, pelanggan, layanan..."
+            placeholder="Cari order ID, pelanggan, alasan pembatalan..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/80 text-xs text-slate-900 dark:text-white rounded-xl placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-slate-200 dark:border-slate-700/60 focus:outline-none focus:border-emerald-500"
@@ -157,25 +178,32 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
                 <th className="py-3 px-4">Layanan & Durasi</th>
                 <th className="py-3 px-4">Mitra Terapis</th>
                 <th className="py-3 px-4">Total Tarif</th>
-                <th className="py-3 px-4">Status Pesanan</th>
+                <th className="py-3 px-4">Status & Alasan</th>
                 <th className="py-3 px-4 text-right">Rincian & Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {filteredOrders.map((order) => {
+                const cancelReason = getOrderCancellationReason(order);
                 const statusMap: Record<
                   string,
                   { label: string; variant: 'emerald' | 'amber' | 'blue' | 'rose' | 'slate' }
                 > = {
                   PENDING: { label: 'Mencari Terapis', variant: 'amber' },
+                  ACCEPTED: { label: 'Menuju Lokasi', variant: 'blue' },
                   ACCEPTED_ON_THE_WAY: { label: 'Menuju Lokasi', variant: 'blue' },
+                  ARRIVED: { label: 'Tiba di Lokasi', variant: 'blue' },
                   ARRIVED_AT_LOCATION: { label: 'Tiba di Lokasi', variant: 'blue' },
+                  SANITATION_AND_PREP: { label: 'Persiapan & SOP', variant: 'emerald' },
+                  IN_SERVICE: { label: 'Sesi Pijat Berjalan', variant: 'emerald' },
                   TREATMENT_IN_PROGRESS: { label: 'Sesi Pijat Berjalan', variant: 'emerald' },
                   COMPLETED_PAYMENT: { label: 'Selesai', variant: 'emerald' },
+                  FINISHED: { label: 'Selesai', variant: 'emerald' },
                   REVIEW_SUBMITTED: { label: 'Selesai & Dinilai', variant: 'emerald' },
-                  CANCELLED_SAFETY_MISMATCH: { label: '🚫 Dibatalkan Mitra (SOP/Gender)', variant: 'rose' },
-                  CANCELLED_BY_THERAPIST: { label: '🚫 Dibatalkan Mitra (Hak Tolak SOP)', variant: 'rose' },
-                  CANCELLED: { label: 'Dibatalkan Pelanggan', variant: 'slate' },
+                  DECLINED: { label: '🚫 Ditolak Mitra', variant: 'rose' },
+                  CANCELLED_SAFETY_MISMATCH: { label: '🛡️ Hak Tolak SOP', variant: 'rose' },
+                  CANCELLED_BY_THERAPIST: { label: '🚫 Dibatalkan Mitra', variant: 'rose' },
+                  CANCELLED: { label: '✕ Dibatalkan', variant: 'slate' },
                 };
 
                 const currentStatus = statusMap[order.status] || {
@@ -237,6 +265,14 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
                       <Badge variant={currentStatus.variant} size="sm">
                         {currentStatus.label}
                       </Badge>
+                      {cancelReason && (
+                        <div
+                          className="text-[10.5px] text-rose-600 dark:text-rose-400 font-medium mt-1 truncate max-w-[190px]"
+                          title={cancelReason}
+                        >
+                          Alasan: &quot;{cancelReason}&quot;
+                        </div>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
@@ -307,6 +343,19 @@ export const OrdersCenter: React.FC<OrdersCenterProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Cancellation Reason Alert Box if available */}
+            {getOrderCancellationReason(selectedOrder) && (
+              <div className="bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-xl border border-rose-200 dark:border-rose-800/60 text-xs">
+                <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold mb-1">
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <span>Alasan Pembatalan / Penolakan Mitra:</span>
+                </div>
+                <p className="text-slate-800 dark:text-slate-200 font-semibold pl-5">
+                  &quot;{getOrderCancellationReason(selectedOrder)}&quot;
+                </p>
+              </div>
+            )}
 
             {/* Reassign / Manual Dispatch Dropdown */}
             <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">

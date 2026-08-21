@@ -52,6 +52,8 @@ export interface Order {
   latitude?: number;
   longitude?: number;
   commission_rate?: number;
+  cancellation_reason?: string;
+  notes?: string;
   // Join helpers
   therapist?: Therapist;
 }
