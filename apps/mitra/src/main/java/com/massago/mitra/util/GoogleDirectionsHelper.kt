@@ -11,7 +11,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import kotlin.math.roundToInt
+import kotlin.math.*
 
 data class DrivingRouteInfo(
     val points: List<LatLng>,
@@ -25,25 +25,83 @@ object GoogleDirectionsHelper {
     private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS)
-        .readTimeout(4, TimeUnit.SECONDS)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
         .build()
     private val gson = Gson()
 
-    // Route caching to avoid redundant API calls when movement is slight
+    // Route caching keyed with ~20m granularity
     private val routeCache = ConcurrentHashMap<String, DrivingRouteInfo>()
 
     private fun buildCacheKey(origin: LatLng, dest: LatLng): String {
-        val oLat = (origin.latitude * 1000).toInt()
-        val oLng = (origin.longitude * 1000).toInt()
-        val dLat = (dest.latitude * 1000).toInt()
-        val dLng = (dest.longitude * 1000).toInt()
+        val oLat = (origin.latitude * 5000).toInt()
+        val oLng = (origin.longitude * 5000).toInt()
+        val dLat = (dest.latitude * 5000).toInt()
+        val dLng = (dest.longitude * 5000).toInt()
         return "$oLat,$oLng-$dLat,$dLng"
+    }
+
+    fun clearCache() {
+        routeCache.clear()
+    }
+
+    /**
+     * Calculate Haversine distance in meters between two LatLng coordinates
+     */
+    fun distanceInMeters(p1: LatLng, p2: LatLng): Double {
+        val r = 6371000.0 // Earth's radius in meters
+        val lat1 = Math.toRadians(p1.latitude)
+        val lat2 = Math.toRadians(p2.latitude)
+        val dLat = Math.toRadians(p2.latitude - p1.latitude)
+        val dLng = Math.toRadians(p2.longitude - p1.longitude)
+        val a = sin(dLat / 2).pow(2) + cos(lat1) * cos(lat2) * sin(dLng / 2).pow(2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return r * c
+    }
+
+    /**
+     * Calculate bearing heading in degrees (0..360) from start to end
+     */
+    fun calculateBearing(from: LatLng, to: LatLng): Float {
+        val lat1 = Math.toRadians(from.latitude)
+        val lng1 = Math.toRadians(from.longitude)
+        val lat2 = Math.toRadians(to.latitude)
+        val lng2 = Math.toRadians(to.longitude)
+        val dLng = lng2 - lng1
+        val y = sin(dLng) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLng)
+        val bearing = Math.toDegrees(atan2(y, x)).toFloat()
+        return (bearing + 360f) % 360f
+    }
+
+    /**
+     * Dynamically trim polyline passed by the driver and return remaining path
+     */
+    fun trimPassedRoute(currentPos: LatLng, fullRoute: List<LatLng>): List<LatLng> {
+        if (fullRoute.size <= 2) return fullRoute
+
+        var closestIndex = 0
+        var minDistance = Double.MAX_VALUE
+
+        for (i in 0 until fullRoute.size) {
+            val dist = distanceInMeters(currentPos, fullRoute[i])
+            if (dist < minDistance) {
+                minDistance = dist
+                closestIndex = i
+            }
+        }
+
+        // If driver is far off the polyline (> 100m), don't trim arbitrarily
+        if (minDistance > 100.0) {
+            return listOf(currentPos) + fullRoute
+        }
+
+        val remaining = fullRoute.subList(closestIndex, fullRoute.size)
+        return listOf(currentPos) + remaining
     }
 
     /**
      * Fetch real street-following road path, exact driving distance, and traffic duration.
-     * Guaranteed never to return a crude straight line when real roads exist.
      */
     suspend fun getDrivingRouteInfo(origin: LatLng, destination: LatLng): DrivingRouteInfo = withContext(Dispatchers.IO) {
         val cacheKey = buildCacheKey(origin, destination)
@@ -160,7 +218,7 @@ object GoogleDirectionsHelper {
             }
         } catch (_: Exception) {}
 
-        // Fallback: Smooth Curved Interpolated Path (Never a crude straight line)
+        // Fallback: Smooth Curved Interpolated Path
         smoothCurvedFallbackRoute(origin, destination)
     }
 
@@ -209,10 +267,8 @@ object GoogleDirectionsHelper {
     private fun smoothCurvedFallbackRoute(origin: LatLng, destination: LatLng): DrivingRouteInfo {
         val dLat = Math.toRadians(destination.latitude - origin.latitude)
         val dLng = Math.toRadians(destination.longitude - origin.longitude)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(origin.latitude)) * Math.cos(Math.toRadians(destination.latitude)) *
-                Math.sin(dLng / 2) * Math.sin(dLng / 2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(origin.latitude)) * cos(Math.toRadians(destination.latitude)) * sin(dLng / 2).pow(2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         val distKm = ((6371.0 * c * 1.25) * 10).roundToInt() / 10.0
         val etaMin = (distKm * 2.5).roundToInt().coerceAtLeast(1)
 

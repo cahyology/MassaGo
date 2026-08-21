@@ -195,13 +195,13 @@ class MitraLocationService : Service() {
     @SuppressLint("MissingPermission")
     private fun requestLocationUpdates() {
         try {
-            // Adaptive location request: 5000ms interval for smooth tracking without overheating/battery drain
+            // Adaptive location request: 2500ms interval for smooth ojol-grade real-time tracking
             val locationRequest = LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY,
-                5000L
+                2500L
             ).apply {
-                setMinUpdateIntervalMillis(3000L)
-                setMinUpdateDistanceMeters(3f)
+                setMinUpdateIntervalMillis(1200L)
+                setMinUpdateDistanceMeters(1.5f)
                 setWaitForAccurateLocation(false)
             }.build()
 

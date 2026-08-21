@@ -256,8 +256,19 @@ class SupabaseCustomerClient(
      */
     suspend fun fetchTherapist(therapistId: String): Map<String, Any>? = withContext(Dispatchers.IO) {
         try {
+            var clean = therapistId.replace("[^0-9]".toRegex(), "")
+            if (clean.startsWith("0")) clean = "62" + clean.substring(1)
+            else if (clean.startsWith("8")) clean = "62" + clean
+            val localPhone = if (clean.startsWith("62")) "0" + clean.substring(2) else clean
+
+            val queryParam = if (clean.length >= 8) {
+                "or=(id.eq.$therapistId,phone.eq.$clean,phone.eq.$localPhone)"
+            } else {
+                "id=eq.$therapistId"
+            }
+
             val request = Request.Builder()
-                .url("$baseUrl/rest/v1/therapists?id=eq.$therapistId&select=*")
+                .url("$baseUrl/rest/v1/therapists?$queryParam&select=*")
                 .header("Cache-Control", "no-cache, no-store, must-revalidate")
                 .header("Pragma", "no-cache")
                 .get()
