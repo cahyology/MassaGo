@@ -232,6 +232,7 @@ fun HomeScreen(
                             showKycWarningDialog = true
                             return@StatusToggleSwitch
                         }
+                        com.massago.mitra.util.BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
                         com.massago.mitra.service.MitraLocationService.start(context)
                     } else if (newStatus == DutyStatus.OFFLINE) {
                         com.massago.mitra.service.MitraLocationService.stop(context)

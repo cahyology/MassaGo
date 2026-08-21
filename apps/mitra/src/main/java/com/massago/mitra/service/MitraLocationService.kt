@@ -29,8 +29,11 @@ import com.massago.mitra.data.repository.OrderRepository
 import com.massago.mitra.data.repository.TherapistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class MitraLocationService : Service() {
@@ -119,6 +122,25 @@ class MitraLocationService : Service() {
 
     private var isExplicitStop = false
     private var wakeLock: PowerManager.WakeLock? = null
+    private var orderPollingJob: Job? = null
+
+    private fun startForegroundOrderPolling() {
+        orderPollingJob?.cancel()
+        orderPollingJob = serviceScope.launch(Dispatchers.IO) {
+            while (isActive && !isExplicitStop) {
+                try {
+                    val isOnline = therapistRepository.isPersistedOnline() ||
+                            therapistRepository.therapistProfile.value.dutyStatus == DutyStatus.ONLINE
+                    if (isOnline && OrderRepository.instance.activeOrder.value == null) {
+                        OrderRepository.instance.checkForRealIncomingOrderDirect()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                delay(2000)
+            }
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
@@ -139,10 +161,14 @@ class MitraLocationService : Service() {
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        var type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            type = type or android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                        }
                         startForeground(
                             NOTIFICATION_ID,
                             buildForegroundNotification(),
-                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                            type
                         )
                     } else {
                         startForeground(NOTIFICATION_ID, buildForegroundNotification())
@@ -152,10 +178,13 @@ class MitraLocationService : Service() {
                 }
 
                 requestLocationUpdates()
+                startForegroundOrderPolling()
                 OrderRepository.instance.startRealtimeOrderPolling()
             }
             ACTION_STOP -> {
                 isExplicitStop = true
+                orderPollingJob?.cancel()
+                orderPollingJob = null
                 try {
                     if (wakeLock?.isHeld == true) {
                         wakeLock?.release()
