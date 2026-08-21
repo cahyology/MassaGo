@@ -26,8 +26,8 @@ import java.util.Locale
 
 object NotificationSoundHelper {
 
-    private const val CHANNEL_ID = "massago_incoming_orders_alarm_v6"
-    private const val CHANNEL_NAME = "Alarm Pesanan Masuk (Prioritas Tinggi)"
+    private const val CHANNEL_ID = "massago_incoming_orders_custom_sound_v7"
+    private const val CHANNEL_NAME = "Alarm Pesanan Masuk MassaGo"
     private const val NOTIFICATION_ID = 8821
 
     private var mediaPlayer: MediaPlayer? = null
@@ -35,11 +35,19 @@ object NotificationSoundHelper {
     private var screenWakeLock: PowerManager.WakeLock? = null
     private val lock = Any()
 
-    fun createNotificationChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val soundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+    fun getCustomIncomingSoundUri(context: Context): Uri {
+        return try {
+            Uri.parse("android.resource://${context.packageName}/${R.raw.incoming}")
+        } catch (_: Exception) {
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        }
+    }
+
+    fun createNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val soundUri = getCustomIncomingSoundUri(context)
 
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -51,7 +59,7 @@ object NotificationSoundHelper {
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alarm dan notifikasi prioritas tinggi untuk pesanan baru"
+                description = "Alarm dan notifikasi suara pesanan masuk MassaGo"
                 enableLights(true)
                 enableVibration(true)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -66,7 +74,7 @@ object NotificationSoundHelper {
     }
 
     /**
-     * Start continuous looping alarm sound, repeating vibration, and wake the screen.
+     * Start continuous looping custom incoming.mp3 alarm sound, repeating vibration, and wake the screen.
      */
     fun triggerIncomingOrderAlert(context: Context, order: Order) {
         synchronized(lock) {
@@ -87,26 +95,38 @@ object NotificationSoundHelper {
                 e.printStackTrace()
             }
 
-            // 2. Start Continuous Looping Ringtone / Alarm Player
+            // 2. Start Continuous Looping Custom incoming.mp3 Alarm Sound
             try {
                 if (mediaPlayer == null) {
-                    val alertUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
-                    mediaPlayer = MediaPlayer().apply {
-                        setDataSource(context, alertUri)
-                        setAudioAttributes(
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_ALARM)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                                .setLegacyStreamType(AudioManager.STREAM_ALARM)
-                                .build()
-                        )
-                        isLooping = true
-                        setVolume(1.0f, 1.0f)
-                        prepare()
-                        start()
+                    try {
+                        mediaPlayer = MediaPlayer.create(context, R.raw.incoming)?.apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_ALARM)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                    .setLegacyStreamType(AudioManager.STREAM_ALARM)
+                                    .build()
+                            )
+                            isLooping = true
+                            setVolume(1.0f, 1.0f)
+                            start()
+                        }
+                    } catch (e1: Exception) {
+                        val alertUri = getCustomIncomingSoundUri(context)
+                        mediaPlayer = MediaPlayer().apply {
+                            setDataSource(context, alertUri)
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_ALARM)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                    .setLegacyStreamType(AudioManager.STREAM_ALARM)
+                                    .build()
+                            )
+                            isLooping = true
+                            setVolume(1.0f, 1.0f)
+                            prepare()
+                            start()
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -222,6 +242,7 @@ object NotificationSoundHelper {
         val title = "🔔 ORDER PIJAT MASUK! ($formattedEarning)"
         val content = "${order.servicePackage.name} (${order.servicePackage.durationMinutes} mnt) • ${order.client.name} (${order.client.distanceKm} km)"
         val subText = "Pendapatan Bersih: $formattedEarning"
+        val soundUri = getCustomIncomingSoundUri(context)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_stat)
@@ -241,6 +262,7 @@ object NotificationSoundHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setContentIntent(fullScreenPendingIntent)
+            .setSound(soundUri)
             .setAutoCancel(false)
             .setOngoing(true)
             .addAction(R.drawable.ic_notification_stat, "✅ TERIMA ORDER", acceptPendingIntent)
