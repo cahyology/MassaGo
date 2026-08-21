@@ -17,7 +17,7 @@ data class DrivingRouteInfo(
     val points: List<LatLng>,
     val distanceKm: Double,
     val durationMinutes: Int,
-    val source: String = "Street Navigation"
+    val source: String = "Google Maps Platform"
 )
 
 object GoogleDirectionsHelper {
@@ -115,6 +115,9 @@ object GoogleDirectionsHelper {
 
     /**
      * Fetch real street-following road path, exact driving distance, and traffic duration.
+     * Tier 1: Official Google Routes API (Traffic-Aware Two-Wheeler)
+     * Tier 2: Official Google Directions API
+     * Tier 3: High-precision OSRM / OpenStreetMap Fail-safe Backup
      */
     suspend fun getDrivingRouteInfo(origin: LatLng, destination: LatLng): DrivingRouteInfo = withContext(Dispatchers.IO) {
         // Prevent 0,0 queries
@@ -128,7 +131,113 @@ object GoogleDirectionsHelper {
             return@withContext cached
         }
 
-        // 1. High-precision Real Street Turn-by-Turn Routing Engine (OSRM Primary)
+        // 1. PRIMARY: Official Google Routes API (Two Wheeler Traffic Aware)
+        try {
+            val googlePayload = JsonObject().apply {
+                add("origin", JsonObject().apply {
+                    add("location", JsonObject().apply {
+                        add("latLng", JsonObject().apply {
+                            addProperty("latitude", origin.latitude)
+                            addProperty("longitude", origin.longitude)
+                        })
+                    })
+                })
+                add("destination", JsonObject().apply {
+                    add("location", JsonObject().apply {
+                        add("latLng", JsonObject().apply {
+                            addProperty("latitude", destination.latitude)
+                            addProperty("longitude", destination.longitude)
+                        })
+                    })
+                })
+                addProperty("travelMode", "TWO_WHEELER")
+                addProperty("routingPreference", "TRAFFIC_AWARE")
+            }.toString()
+
+            val googleRequest = Request.Builder()
+                .url("https://routes.googleapis.com/directions/v2:computeRoutes")
+                .header("Content-Type", "application/json")
+                .header("X-Goog-Api-Key", GOOGLE_MAPS_API_KEY)
+                .header("X-Goog-FieldMask", "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline")
+                .post(googlePayload.toRequestBody(JSON_MEDIA))
+                .build()
+
+            client.newCall(googleRequest).execute().use { googleResponse ->
+                if (googleResponse.isSuccessful) {
+                    val bodyStr = googleResponse.body?.string()
+                    if (!bodyStr.isNullOrBlank()) {
+                        val json = gson.fromJson(bodyStr, JsonObject::class.java)
+                        val routes = json.getAsJsonArray("routes")
+                        if (routes != null && routes.size() > 0) {
+                            val routeObj = routes[0].asJsonObject
+                            val polylineObj = routeObj.getAsJsonObject("polyline")
+                            val encoded = polylineObj?.get("encodedPolyline")?.asString
+                            val distanceMeters = routeObj.get("distanceMeters")?.asDouble ?: 0.0
+                            val durationStr = routeObj.get("duration")?.asString ?: "0s"
+                            val durationSeconds = durationStr.removeSuffix("s").toDoubleOrNull() ?: 0.0
+
+                            if (!encoded.isNullOrBlank()) {
+                                val decoded = decodePolyline(encoded)
+                                if (decoded.size >= 2) {
+                                    val distKm = ((distanceMeters / 1000.0) * 10).roundToInt() / 10.0
+                                    val etaMin = (durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
+                                    val result = DrivingRouteInfo(
+                                        points = decoded,
+                                        distanceKm = distKm,
+                                        durationMinutes = etaMin,
+                                        source = "Google Routes API"
+                                    )
+                                    routeCache[cacheKey] = result
+                                    return@withContext result
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 2. SECONDARY: Official Google Directions API
+        try {
+            val directionsUrl = "https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=$GOOGLE_MAPS_API_KEY"
+            val dirRequest = Request.Builder().url(directionsUrl).get().build()
+            client.newCall(dirRequest).execute().use { dirResponse ->
+                if (dirResponse.isSuccessful) {
+                    val bodyStr = dirResponse.body?.string()
+                    if (!bodyStr.isNullOrBlank()) {
+                        val json = gson.fromJson(bodyStr, JsonObject::class.java)
+                        val routes = json.getAsJsonArray("routes")
+                        if (routes != null && routes.size() > 0) {
+                            val routeObj = routes[0].asJsonObject
+                            val overviewPolyline = routeObj.getAsJsonObject("overview_polyline")
+                            val encoded = overviewPolyline?.get("points")?.asString
+                            val legs = routeObj.getAsJsonArray("legs")
+                            val legObj = legs?.firstOrNull()?.asJsonObject
+                            val distMeters = legObj?.getAsJsonObject("distance")?.get("value")?.asDouble ?: 0.0
+                            val durSeconds = legObj?.getAsJsonObject("duration")?.get("value")?.asDouble ?: 0.0
+
+                            if (!encoded.isNullOrBlank()) {
+                                val decoded = decodePolyline(encoded)
+                                if (decoded.size >= 2) {
+                                    val distKm = ((distMeters / 1000.0) * 10).roundToInt() / 10.0
+                                    val etaMin = (durSeconds / 60.0).roundToInt().coerceAtLeast(1)
+                                    val result = DrivingRouteInfo(
+                                        points = decoded,
+                                        distanceKm = distKm,
+                                        durationMinutes = etaMin,
+                                        source = "Google Directions API"
+                                    )
+                                    routeCache[cacheKey] = result
+                                    return@withContext result
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 3. FAIL-SAFE REDUNDANCY: Real Street Turn-by-Turn Road Network Engine (OSRM / OpenStreetMap)
         try {
             val url = "https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=polyline"
             val request = Request.Builder()
@@ -169,48 +278,7 @@ object GoogleDirectionsHelper {
             }
         } catch (_: Exception) {}
 
-        // 2. High-precision OpenStreetMap Routing (Secondary Redundancy)
-        try {
-            val url = "https://routing.openstreetmap.de/routed-car/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=polyline"
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "MassaGoApp/1.0 (Android Native)")
-                .get()
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val bodyStr = response.body?.string()
-                    if (!bodyStr.isNullOrBlank()) {
-                        val json = gson.fromJson(bodyStr, JsonObject::class.java)
-                        val routes = json.getAsJsonArray("routes")
-                        if (routes != null && routes.size() > 0) {
-                            val routeObj = routes[0].asJsonObject
-                            val geom = routeObj.get("geometry")?.asString
-                            val distMeters = routeObj.get("distance")?.asDouble ?: 0.0
-                            val durSeconds = routeObj.get("duration")?.asDouble ?: 0.0
-
-                            val decodedPoints = if (!geom.isNullOrBlank()) decodePolyline(geom) else emptyList()
-                            val distKm = ((distMeters / 1000.0) * 10).roundToInt() / 10.0
-                            val etaMin = ((durSeconds / 60.0) * 1.15).roundToInt().coerceAtLeast(1)
-
-                            if (decodedPoints.size >= 2) {
-                                val result = DrivingRouteInfo(
-                                    points = decodedPoints,
-                                    distanceKm = distKm,
-                                    durationMinutes = etaMin,
-                                    source = "Street Road Network (OSM)"
-                                )
-                                routeCache[cacheKey] = result
-                                return@withContext result
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-
-        // 3. Fallback: Smooth Interpolated Road Path
+        // 4. Ultimate Fallback: Smooth Interpolated Road Path
         smoothCurvedFallbackRoute(origin, destination)
     }
 
